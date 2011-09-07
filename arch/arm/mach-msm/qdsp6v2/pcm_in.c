@@ -36,6 +36,8 @@
 #define BUFFER_SIZE_MULTIPLE 4
 #define MIN_BUFFER_SIZE 160
 
+#define VOC_REC_NONE 0xFF
+
 struct pcm {
 	struct mutex lock;
 	struct mutex read_lock;
@@ -53,8 +55,6 @@ struct pcm {
 	atomic_t in_opened;
 	atomic_t in_stopped;
 };
-
-static atomic_t pcm_opened = ATOMIC_INIT(0);
 
 static void pcm_in_get_dsp_buffers(struct pcm*,
 				uint32_t token, uint32_t *payload);
@@ -177,6 +177,11 @@ static long pcm_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			q6asm_read(pcm->ac);
 		pr_info("%s: AUDIO_START session id[%d]\n", __func__,
 							pcm->ac->session);
+
+                if (pcm->rec_mode != VOC_REC_NONE)
+                        msm_enable_incall_recording(pcm->ac->session,
+                        pcm->rec_mode, pcm->sample_rate, pcm->channel_count);
+
 		break;
 	}
 	case AUDIO_GET_SESSION_ID: {
@@ -258,6 +263,30 @@ static long pcm_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	}
 
+        case AUDIO_SET_INCALL: {
+                if (copy_from_user(&pcm->rec_mode,
+                                   (void *) arg,
+                                   sizeof(pcm->rec_mode))) {
+                        rc = -EFAULT;
+                        pr_err("%s: Error copying in-call mode\n", __func__);
+                        break;
+                }
+
+                if (pcm->rec_mode != VOC_REC_UPLINK &&
+                    pcm->rec_mode != VOC_REC_DOWNLINK &&
+                    pcm->rec_mode != VOC_REC_BOTH) {
+                        rc = -EINVAL;
+                        pcm->rec_mode = VOC_REC_NONE;
+
+                        pr_err("%s: Invalid %d in-call rec_mode\n",
+                               __func__, pcm->rec_mode);
+                        break;
+                }
+
+                pr_debug("%s: In-call rec_mode %d\n", __func__, pcm->rec_mode);
+                break;
+        }
+
 	default:
 		rc = -EINVAL;
 		break;
@@ -272,11 +301,6 @@ static int pcm_in_open(struct inode *inode, struct file *file)
 	int rc = 0;
 	struct timespec ts;
 	struct rtc_time tm;
-
-	if (atomic_cmpxchg(&pcm_opened, 0, 1) != 0) {
-		rc = -EBUSY;
-		return rc;
-	}
 
 	pcm = kzalloc(sizeof(struct pcm), GFP_KERNEL);
 	if (!pcm)
@@ -309,6 +333,9 @@ static int pcm_in_open(struct inode *inode, struct file *file)
 	atomic_set(&pcm->in_enabled, 0);
 	atomic_set(&pcm->in_count, 0);
 	atomic_set(&pcm->in_opened, 1);
+
+	pcm->rec_mode = VOC_REC_NONE;
+
 	file->private_data = pcm;
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec, &tm);
@@ -324,7 +351,6 @@ fail:
 	if (pcm->ac)
 		q6asm_audio_client_free(pcm->ac);
 	kfree(pcm);
-	atomic_set(&pcm_opened, 0);
 	return rc;
 }
 
@@ -404,6 +430,11 @@ static int pcm_in_release(struct inode *inode, struct file *file)
 	}
 	if (pcm->ac) {
 		mutex_lock(&pcm->lock);
+	        if ((pcm->rec_mode != VOC_REC_NONE) && atomic_read(&pcm->in_enabled)) {
+        	        msm_disable_incall_recording(pcm->ac->session, pcm->rec_mode);
+	                pcm->rec_mode = VOC_REC_NONE;
+	        }
+
 		/* remove this session from topology list */
 		auddev_cfg_tx_copp_topology(pcm->ac->session,
 				DEFAULT_COPP_TOPOLOGY);
@@ -421,7 +452,6 @@ static int pcm_in_release(struct inode *inode, struct file *file)
 	kfree(pcm);
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec, &tm);
-	atomic_set(&pcm_opened, 0);
 	pr_aud_info1("[ATS][stop_recording][successful] at %lld \
 		(%d-%02d-%02d %02d:%02d:%02d.%09lu UTC)\n",
 		ktime_to_ns(ktime_get()),
