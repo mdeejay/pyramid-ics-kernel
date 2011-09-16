@@ -298,7 +298,7 @@ static struct msm_acpu_clock_platform_data msm8x60_acpu_clock_data = {
 static unsigned pyramid_perf_acpu_table[] = {
 	384000000,
 	756000000,
-	1188000000,
+	1512000000,
 };
 
 static struct perflock_platform_data pyramid_perflock_data = {
