@@ -296,7 +296,7 @@ static struct msm_acpu_clock_platform_data msm8x60_acpu_clock_data = {
 
 #ifdef CONFIG_PERFLOCK
 static unsigned pyramid_perf_acpu_table[] = {
-	384000000,
+	192000000,
 	756000000,
 	1512000000,
 };
