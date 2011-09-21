@@ -23,7 +23,7 @@
 #include <linux/string.h>
 #include <linux/ctype.h>
 #include <linux/module.h>
-#include <linux/memcopy.h>
+//#include <linux/memcopy.h>
 
 #ifndef __HAVE_ARCH_STRNICMP
 /**
