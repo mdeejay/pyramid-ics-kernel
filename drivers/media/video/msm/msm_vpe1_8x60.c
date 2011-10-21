@@ -807,6 +807,10 @@ static int vpe_proc_general(struct msm_vpe_cmd *cmd)
 		}
 		cmdp = kmalloc(VPE_OPERATION_MODE_CFG_LEN,
 					GFP_ATOMIC);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto vpe_proc_general_done;
+		}
 		if (copy_from_user(cmdp,
 			(void __user *)(cmd->value),
 			VPE_OPERATION_MODE_CFG_LEN)) {
@@ -890,7 +894,7 @@ static int vpe_proc_general(struct msm_vpe_cmd *cmd)
 		break;
 	}
 vpe_proc_general_done:
-	kfree(cmdp);
+	if (cmdp) kfree(cmdp);
 	return rc;
 }
 
@@ -1013,12 +1017,10 @@ int msm_vpe_config(struct msm_vpe_cfg_cmd *cmd, void *data)
 	case CMD_AXI_CFG_SNAP_VPE:
 	case CMD_AXI_CFG_SNAP_THUMB_VPE: {
 		struct axidata *axid;
-		uint32_t *axio = NULL;
 		axid = data;
 		if (!axid)
 			return -EFAULT;
 		vpe_config_axi(axid);
-		kfree(axio);
 		break;
 	}
 	default:

@@ -584,11 +584,16 @@ static void vfe31_stop(void)
 	uint8_t  axiBusyFlag = true;
 	unsigned long flags;
 
+	printk("[CAM] vfe31_stop +\n");
+
 	spin_lock_irqsave(&vfe31_ctrl->state_lock, flags);
 	if (vfe31_ctrl->vstate == VFE_STATE_IDLE) {
 		spin_unlock_irqrestore(&vfe31_ctrl->state_lock, flags);
+		printk("[CAM] vfe31_stop VFE_STATE_IDLE -\n");
 		return;
 	}
+	printk("[CAM] vfe31_stop state %d\n", vfe31_ctrl->vstate);
+
 	vfe31_ctrl->vstate = VFE_STATE_IDLE;
 	spin_unlock_irqrestore(&vfe31_ctrl->state_lock, flags);
 
@@ -596,6 +601,8 @@ static void vfe31_stop(void)
 	spin_lock_irqsave(&vfe31_ctrl->stop_flag_lock, flags);
 	vfe31_ctrl->stop_ack_pending = TRUE;
 	spin_unlock_irqrestore(&vfe31_ctrl->stop_flag_lock, flags);
+
+	printk("[CAM] vfe31_stop pending %d\n", vfe31_ctrl->stop_ack_pending);
 
 	/* disable all interrupts.  */
 	msm_io_w(VFE_DISABLE_ALL_IRQS,
@@ -622,10 +629,14 @@ static void vfe31_stop(void)
 	msm_io_w(AXI_HALT,
 		vfe31_ctrl->vfebase + VFE_AXI_CMD);
 	wmb();
+
+	printk("[CAM] vfe31_stop axiBusyFlag %d +\n", axiBusyFlag);
 	while (axiBusyFlag) {
 		if (msm_io_r(vfe31_ctrl->vfebase + VFE_AXI_STATUS) & 0x1)
 			axiBusyFlag = false;
 	}
+	printk("[CAM] vfe31_stop axiBusyFlag -\n");
+
 	/* Ensure the write order while writing
 	to the command register using the barrier */
 	msm_io_w_mb(AXI_HALT_CLEAR,
@@ -643,6 +654,7 @@ static void vfe31_stop(void)
 	to the command register using the barrier */
 	msm_io_w_mb(VFE_RESET_UPON_STOP_CMD,
 		vfe31_ctrl->vfebase + VFE_GLOBAL_RESET);
+	printk("[CAM] vfe31_stop -\n");
 }
 
 static int vfe31_disable(struct camera_enable_cmd *enable,
@@ -1240,6 +1252,11 @@ static void vfe31_start_common(void){
 }
 
 static int vfe31_start_recording(void){
+	struct msm_sync* p_sync = (struct msm_sync *)vfe_syncdata;
+	if (!p_sync->stereocam_enabled) {
+		msm_camio_set_perf_lvl(S_VIDEO);
+		usleep(1000);
+	}
 	vfe31_ctrl->req_start_video_rec = TRUE;
 	/* Mask with 0x7 to extract the pixel pattern*/
 	switch (msm_io_r(vfe31_ctrl->vfebase + VFE_CFG_OFF) & 0x7) {
@@ -1257,6 +1274,7 @@ static int vfe31_start_recording(void){
 }
 
 static int vfe31_stop_recording(void){
+	struct msm_sync* p_sync = (struct msm_sync *)vfe_syncdata;
 
 	vfe31_ctrl->req_stop_video_rec = TRUE;
 	/* Mask with 0x7 to extract the pixel pattern*/
@@ -1271,7 +1289,10 @@ static int vfe31_stop_recording(void){
 	default:
 		break;
 	}
-
+	if (!p_sync->stereocam_enabled) {
+		msm_camio_set_perf_lvl(S_PREVIEW);
+		usleep(1000);
+	}
 	return 0;
 }
 
@@ -1339,6 +1360,10 @@ static int vfe31_zsl(void) {
 	msm_io_w(irq_comp_mask, vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	msm_io_r(vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	vfe31_start_common();
+
+	msm_camio_set_perf_lvl(S_ZSL);
+	usleep(1000);
+
 	msm_io_r(vfe31_ctrl->vfebase + VFE_IRQ_COMP_MASK);
 	/* for debug */
 	msm_io_w(1, vfe31_ctrl->vfebase + 0x18C);
@@ -1465,7 +1490,12 @@ static int vfe31_capture(uint32_t num_frames_capture)
 		p_sync->cdata.mode = SENSOR_SNAPSHOT_MODE;
 		p_sync->sctrl.temp_s_config(&p_sync->cdata);
 	}
+	if (p_sync->stereocam_enabled)
+		msm_camio_set_perf_lvl(S_STEREO_CAPTURE);
+	else
+		msm_camio_set_perf_lvl(S_CAPTURE);
 
+	usleep(1000);
 	vfe31_start_common();
 
 	if (p_sync->stereocam_enabled
@@ -1509,6 +1539,7 @@ static int vfe31_start(void)
 	uint32_t irq_comp_mask = 0;
 	uint32_t temp;
 	/* start command now is only good for continuous mode. */
+	struct msm_sync* p_sync = (struct msm_sync *)vfe_syncdata;
 	if ((vfe31_ctrl->operation_mode != VFE_MODE_OF_OPERATION_CONTINUOUS) &&
 		(vfe31_ctrl->operation_mode != VFE_MODE_OF_OPERATION_VIDEO))
 		return 0;
@@ -1538,6 +1569,12 @@ static int vfe31_start(void)
 		temp = msm_io_r(vfe31_ctrl->vfebase + V31_AXI_OUT_OFF + 20 +
 			24 * (vfe31_ctrl->outpath.out0.ch1));
 	}
+	if (p_sync->stereocam_enabled)
+		msm_camio_set_perf_lvl(S_STEREO_VIDEO);
+	else
+		msm_camio_set_perf_lvl(S_PREVIEW);
+
+	usleep(1000);
 	vfe31_start_common();
 	return 0;
 }
@@ -1749,6 +1786,10 @@ static int vfe31_proc_general(struct msm_vfe31_cmd *cmd)
 			goto proc_general_done;
 		}
 		cmdp = kmalloc(V31_OPERATION_CFG_LEN, GFP_ATOMIC);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
 		if (copy_from_user(cmdp,
 			(void __user *)(cmd->value),
 			V31_OPERATION_CFG_LEN)) {
@@ -2236,7 +2277,8 @@ static int vfe31_proc_general(struct msm_vfe31_cmd *cmd)
 	}
 
 proc_general_done:
-	kfree(cmdp);
+	if (cmdp)
+		kfree(cmdp);
 
 	return rc;
 }
@@ -2595,8 +2637,10 @@ static int vfe31_config(struct msm_vfe_cfg_cmd *cmd, void *data)
 		break;
 	}
 vfe31_config_done:
-	kfree(scfg);
-	kfree(sack);
+	if (scfg)
+		kfree(scfg);
+	if (sack)
+		kfree(sack);
 	CDBG("[CAM] %s done: rc = %d\n", __func__, (int) rc);
 	return rc;
 }
@@ -2606,10 +2650,10 @@ static inline void vfe31_read_irq_status(struct vfe31_irq_status *out)
 	uint32_t *temp;
 	memset(out, 0, sizeof(struct vfe31_irq_status));
 	temp = (uint32_t *)(vfe31_ctrl->vfebase + VFE_IRQ_STATUS_0);
-	out->vfeIrqStatus0 = msm_io_r(temp);
+	out->vfeIrqStatus0 = msm_io_r_mb(temp);
 
 	temp = (uint32_t *)(vfe31_ctrl->vfebase + VFE_IRQ_STATUS_1);
-	out->vfeIrqStatus1 = msm_io_r(temp);
+	out->vfeIrqStatus1 = msm_io_r_mb(temp);
 
 	temp = (uint32_t *)(vfe31_ctrl->vfebase + VFE_CAMIF_STATUS);
 	out->camifStatus = msm_io_r(temp);
@@ -2627,7 +2671,6 @@ static inline void vfe31_read_irq_status(struct vfe31_irq_status *out)
 	msm_io_w_mb(1, vfe31_ctrl->vfebase + VFE_IRQ_CMD);
 
 }
-
 static void vfe31_send_msg_no_payload(enum VFE31_MESSAGE_ID id)
 {
 	struct vfe_message msg;
@@ -3895,7 +3938,6 @@ static void vfe31_do_tasklet(unsigned long data)
 		}
 		if (qcmd->vfeInterruptStatus0 &
 				VFE_IRQ_STATUS0_CAMIF_SOF_MASK) {
-			CDBG("[CAM] irq	camifSofIrq\n");
 			vfe31_process_camif_sof_irq();
 		}
 		kfree(qcmd);
@@ -3970,12 +4012,7 @@ static void vfe31_release(struct platform_device *pdev)
 	kfree(vfe31_ctrl);
 	vfe31_ctrl = NULL;
 	release_mem_region(vfemem->start, (vfemem->end - vfemem->start) + 1);
-	pr_info("[CAM] %s, msm_camio_disable\n", __func__);
-	msm_camio_disable(pdev);
-	pr_info("[CAM] %s, msm_camio_set_perf_lvl\n", __func__);
-	msm_camio_set_perf_lvl(S_EXIT);
-
-	vfe_syncdata = NULL;
+        vfe_syncdata = NULL;
 }
 
 static int vfe31_resource_init(struct msm_vfe_callback *presp,

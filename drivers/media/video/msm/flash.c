@@ -34,18 +34,20 @@ enum msm_cam_flash_stat{
 	MSM_CAM_FLASH_ON,
 };
 
+#define MSM_CAM_FLASH_GPIO_TBL_SIZE 3
+
 static int config_flash_gpio_table(enum msm_cam_flash_stat stat,
 			struct msm_camera_sensor_strobe_flash_data *sfdata)
 {
 	int rc = 0, i = 0;
-	int msm_cam_flash_gpio_tbl[][2] = {
+	int msm_cam_flash_gpio_tbl[MSM_CAM_FLASH_GPIO_TBL_SIZE][2] = {
 		{sfdata->flash_trigger, 1},
 		{sfdata->flash_charge, 1},
 		{sfdata->flash_charge_done, 0}
 	};
 
 	if (stat == MSM_CAM_FLASH_ON) {
-		for (i = 0; i < ARRAY_SIZE(msm_cam_flash_gpio_tbl); i++) {
+		for (i = 0; i < MSM_CAM_FLASH_GPIO_TBL_SIZE; i++) {
 			rc = gpio_request(msm_cam_flash_gpio_tbl[i][0],
 							  "CAM_FLASH_GPIO");
 			if (unlikely(rc < 0)) {
@@ -62,7 +64,7 @@ static int config_flash_gpio_table(enum msm_cam_flash_stat stat,
 					msm_cam_flash_gpio_tbl[i][0]);
 		}
 	} else {
-		for (i = 0; i < ARRAY_SIZE(msm_cam_flash_gpio_tbl); i++) {
+		for (i = 0; i < MSM_CAM_FLASH_GPIO_TBL_SIZE; i++) {
 			gpio_direction_input(msm_cam_flash_gpio_tbl[i][0]);
 			gpio_free(msm_cam_flash_gpio_tbl[i][0]);
 		}

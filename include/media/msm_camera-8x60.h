@@ -84,6 +84,7 @@
 
 #define MSM_CAM_IOCTL_AXI_CONFIG \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 16, struct msm_camera_vfe_cfg_cmd *)
+
 #ifdef CONFIG_CAMERA_ZSL
 #define MSM_CAM_IOCTL_GET_PICTURE \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 17, struct msm_frame *)
@@ -159,10 +160,16 @@
 
 #define MSM_CAM_IOCTL_SEND_OUTPUT_S \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 40, uint8_t *)
+
+#define MSM_CAM_IOCTL_DROP_OUTPUT_S \
+       _IOW(MSM_CAM_IOCTL_MAGIC, 42, uint8_t *)
 #endif
 
 #define MSM_CAM_IOCTL_SET_CONFIG_CAMERA_ZSL \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 41, bool *)
+
+#define MSM_CAM_IOCTL_EFFECT_STATE_CFG \
+	_IOW(MSM_CAM_IOCTL_MAGIC, 43, int32_t *)
 
 #define MSM_CAMERA_LED_OFF  0
 #define MSM_CAMERA_LED_LOW  1
@@ -202,7 +209,7 @@ struct msm_ctrl_cmd {
 	int resp_fd; /* FIXME: to be used by the kernel, pass-through for now */
 };
 
-struct msm_cam_evt_msg {
+struct msm_vfe_evt_msg {
 	unsigned short type;	/* 1 == event (RPC), 0 == message (adsp) */
 	unsigned short msg_id;
 	unsigned int len;	/* size in, number of bytes out */
@@ -249,7 +256,7 @@ struct msm_stats_event_ctrl {
 	int timeout_ms;
 	struct msm_ctrl_cmd ctrl_cmd;
 	/* struct  vfe_event_t  stats_event; */
-	struct msm_cam_evt_msg stats_event;
+	struct msm_vfe_evt_msg stats_event;
 };
 
 /* 2. config command: config command(from config thread); */
@@ -442,10 +449,6 @@ struct msm_frame {
 	uint32_t error_code;
 	struct fd_roi_info roi_info;
 	uint32_t frame_id;
-
-	/* Must match to user space - msm_camera8x60_3D.h */
-	int stcam_quality_ind;
-	uint32_t stcam_conv_value;
 };
 
 enum msm_st_frame_packing {
@@ -549,7 +552,6 @@ struct msm_camsensor_info {
 	char name[MAX_SENSOR_NAME];
 	uint8_t flash_enabled;
 	int8_t total_steps;
-	uint8_t support_3d;
 };
 
 struct msm_camera_info {
