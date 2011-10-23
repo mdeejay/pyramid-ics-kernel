@@ -504,6 +504,7 @@ static int msm_pmem_frame_ptov_lookup(struct msm_sync *sync,
 	return -EINVAL;
 }
 
+#ifdef CONFIG_CAMERA_ZSL
 static int msm_pmem_frame_ptov_lookup2(struct msm_sync *sync,
 		unsigned long pyaddr,
 		struct msm_pmem_info *pmem_info,
@@ -541,6 +542,7 @@ static int msm_pmem_frame_ptov_lookup2(struct msm_sync *sync,
 	spin_unlock_irqrestore(&sync->pmem_frame_spinlock, flags);
 	return -EINVAL;
 }
+#endif
 
 static unsigned long msm_pmem_stats_ptov_lookup(struct msm_sync *sync,
 		unsigned long addr, int *fd)
@@ -752,17 +754,7 @@ static int __msm_get_frame(struct msm_sync *sync,
 	}
 
 	vdata = (struct msm_vfe_resp *)(qcmd->command);
-	if (vdata == NULL) {
-		pr_err("[CAM] %s: cannot get frame, vdata is NULL\n", __func__);
-		rc = -EFAULT;
-		goto err;
-	}
 	pphy = &vdata->phy;
-	if (!pphy) {
-		pr_err("[CAM] %s: cannot get frame, invalid pphy address\n", __func__);
-		rc = -EFAULT;
-		goto err;
-	}
 	rc = msm_pmem_frame_ptov_lookup(sync,
 			pphy->y_phy,
 			pphy->cbcr_phy,
@@ -906,7 +898,6 @@ static struct msm_queue_cmd *__msm_control(struct msm_sync *sync,
 		int timeout)
 {
 	int rc;
-	int loop = 0;
 	unsigned long flags = 0;
 	// get the command type first - prevent NULL pointer after wait_event_interruptible_timeout
 	int16_t ignore_qcmd_type = (int16_t)((struct msm_ctrl_cmd *)
@@ -945,14 +936,8 @@ wait_event:
 				printk("[CAM] %s: qcmd_done already, continue to wait\n", __func__);
 				spin_unlock_irqrestore(&queue->wait_lock, flags);
 				goto wait_event;
-			} else if (rc == -512 && loop < 100) { /* loop for max. 100 times if rc is -512 to avoid ignoring command */
-				spin_unlock_irqrestore(&queue->wait_lock, flags);
-				loop++;
-				msleep(5);
-				printk("[CAM] %s: wait_event error %d, goto wait_event loop %d times\n", __func__, rc, loop);
-				goto wait_event;
 			} else {
-				printk("[CAM] %s: wait_event error %d ignore cmd %d\n", __func__, rc, ignore_qcmd_type);
+				printk("[CAM] %s: wait_event error %d\n", __func__, rc);
 				if (msm_delete_entry(&sync->event_q,
 						list_config, qcmd)) {
 					sync->ignore_qcmd = true;
@@ -1040,7 +1025,7 @@ static int msm_control(struct msm_control_device *ctrl_pmsm,
 
 	if (udata->length) {
 		if (udata->length > sizeof(data)) {
-			pr_info("[CAM] %s: user data too large (%d, max is %d)\n",
+			pr_err("[CAM] %s: user data too large (%d, max is %d)\n",
 					__func__,
 					udata->length,
 					sizeof(data));
@@ -1161,7 +1146,6 @@ static int msm_divert_st_frame(struct msm_sync *sync,
 	int rc = 0;
 	static int flag = 0;
 
-	memset(&pinfo, 0, sizeof(pinfo));
 	if (se->stats_event.msg_id != OUTPUT_TYPE_ST_L) {
 		if (se->resptype == MSM_CAM_RESP_STEREO_OP_1) {
 			rc = msm_pmem_frame_ptov_lookup(sync, data->phy.y_phy,
@@ -1174,8 +1158,7 @@ static int msm_divert_st_frame(struct msm_sync *sync,
 					0); /* do not clear the active flag */
 			buf.buf_info.path = path;
 		} else {
-			pr_err("[CAM] %s: Invalid resptype = %d\n", __func__, se->resptype);
-			return rc;
+			CDBG("[CAM] %s: Invalid resptype = %d\n", __func__, se->resptype);
 		}
 
 		if (rc < 0) {
@@ -1210,13 +1193,6 @@ static int msm_divert_st_frame(struct msm_sync *sync,
 				default: {
 					pr_err("[CAM] %s: invalid frame path %d\n",
 						__func__, path);
-
-					buf.L.stCropInfo.in_w = 0;
-					buf.L.stCropInfo.in_h = 0;
-					buf.L.stCropInfo.out_w = 0;
-					buf.L.stCropInfo.out_h = 0;
-					buf.R.stCropInfo = buf.L.stCropInfo;
-
 					break;
 				}
 			}
@@ -1571,11 +1547,10 @@ static int msm_config_vpe(struct msm_sync *sync, void __user *arg)
 	return -EINVAL;
 }
 
-#define MSM_CONFIG_VFE_REGION_SIZE 8
 static int msm_config_vfe(struct msm_sync *sync, void __user *arg)
 {
 	struct msm_vfe_cfg_cmd cfgcmd;
-	struct msm_pmem_region region[MSM_CONFIG_VFE_REGION_SIZE];
+	struct msm_pmem_region region[8];
 	struct axidata axi_data;
 
 	if (!sync->vfefn.vfe_config) {
@@ -1597,13 +1572,11 @@ static int msm_config_vfe(struct msm_sync *sync, void __user *arg)
 				MSM_PMEM_AEC_AWB, &region[0],
 				NUM_STAT_OUTPUT_BUFFERS,
 				&sync->pmem_stats_spinlock);
-		if (axi_data.bufnum1 < MSM_CONFIG_VFE_REGION_SIZE) {
-			axi_data.bufnum2 =
-				msm_pmem_region_lookup(&sync->pmem_stats,
-					MSM_PMEM_AF, &region[axi_data.bufnum1],
-					NUM_STAT_OUTPUT_BUFFERS,
-					&sync->pmem_stats_spinlock);
-		}
+		axi_data.bufnum2 =
+			msm_pmem_region_lookup(&sync->pmem_stats,
+				MSM_PMEM_AF, &region[axi_data.bufnum1],
+				NUM_STAT_OUTPUT_BUFFERS,
+				&sync->pmem_stats_spinlock);
 		if (!axi_data.bufnum1 || !axi_data.bufnum2) {
 			pr_err("[CAM] %s: pmem region lookup error\n", __func__);
 			return -EINVAL;
@@ -1814,7 +1787,7 @@ static int msm_frame_axi_cfg(struct msm_sync *sync,
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_frames, pmem_type,
 				&region[0], MAX_PMEM_CFG_BUFFERS, &sync->pmem_frame_spinlock);
-		if (!axi_data.bufnum1 || axi_data.bufnum1 >= MAX_PMEM_CFG_BUFFERS) {
+		if (!axi_data.bufnum1) {
 			pr_err("[CAM] %s %d: pmem region lookup error\n",
 				__func__, __LINE__);
 			return -EINVAL;
@@ -1840,7 +1813,7 @@ static int msm_frame_axi_cfg(struct msm_sync *sync,
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_frames, pmem_type,
 				&region[0], MAX_PMEM_CFG_BUFFERS, &sync->pmem_frame_spinlock);
-		if (!axi_data.bufnum1 || axi_data.bufnum1 >= MAX_PMEM_CFG_BUFFERS) {
+		if (!axi_data.bufnum1) {
 			pr_err("[CAM] %s %d: pmem region lookup error\n",
 				__func__, __LINE__);
 			return -EINVAL;
@@ -1866,7 +1839,7 @@ static int msm_frame_axi_cfg(struct msm_sync *sync,
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_frames, pmem_type,
 				&region[0], MAX_PMEM_CFG_BUFFERS, &sync->pmem_frame_spinlock);
-		if (!axi_data.bufnum1  || axi_data.bufnum1 >= MAX_PMEM_CFG_BUFFERS) {
+		if (!axi_data.bufnum1) {
 			pr_err("[CAM] %s %d: pmem region lookup error\n",
 				__func__, __LINE__);
 			return -EINVAL;
@@ -1878,7 +1851,7 @@ static int msm_frame_axi_cfg(struct msm_sync *sync,
 				&region[axi_data.bufnum1],
 				(MAX_PMEM_CFG_BUFFERS-(axi_data.bufnum1)),
 				 &sync->pmem_frame_spinlock);
-		if (!axi_data.bufnum2 || (axi_data.bufnum1 + axi_data.bufnum2) >= MAX_PMEM_CFG_BUFFERS) {
+		if (!axi_data.bufnum2) {
 			pr_err("[CAM] %s %d: pmem region lookup error\n",
 				__func__, __LINE__);
 			return -EINVAL;
@@ -2033,6 +2006,7 @@ static int __msm_put_frame_buf(struct msm_sync *sync,
 	return rc;
 }
 
+#ifdef CONFIG_CAMERA_ZSL
 static int __msm_put_pic_buf(struct msm_sync *sync,
 		struct msm_frame *pb)
 {
@@ -2111,6 +2085,7 @@ err:
 
        return rc;
 }
+#endif
 
 static int msm_put_frame_buffer(struct msm_sync *sync, void __user *arg)
 {
@@ -2376,7 +2351,6 @@ static int __msm_get_pic_zsl(struct msm_sync *sync,
 
 	frame->ts = qcmd->ts;
 	frame->buffer = (unsigned long)pmem_info.vaddr;
-	frame->phy_offset = pmem_info.offset;
 	frame->y_off = pmem_info.y_off;
 	frame->cbcr_off = pmem_info.cbcr_off;
 	frame->fd = pmem_info.fd;
@@ -2486,7 +2460,7 @@ static int __msm_get_pic(struct msm_sync *sync, struct msm_ctrl_cmd *ctrl)
 	qcmd = msm_dequeue(&sync->pict_q, list_pict);
 	BUG_ON(!qcmd);
 
-	if (qcmd != NULL && qcmd->command != NULL) {
+	if (qcmd->command != NULL) {
 		struct msm_ctrl_cmd *q =
 			(struct msm_ctrl_cmd *)qcmd->command;
 		ctrl->type = q->type;
@@ -2595,12 +2569,8 @@ static int msm_error_config(struct msm_sync *sync, void __user *arg)
 	struct msm_queue_cmd *qcmd =
 		kmalloc(sizeof(struct msm_queue_cmd), GFP_KERNEL);
 
-	if (qcmd) {
+	if (qcmd)
 		atomic_set(&(qcmd->on_heap), 1);
-	} else {
-		pr_err("%s: out of memory\n", __func__);
-		return -ENOMEM;
-	}
 
 	if (copy_from_user(&(qcmd->error_code), arg, sizeof(uint32_t))) {
 		ERR_COPY_FROM_USER();
@@ -3030,8 +3000,10 @@ static long msm_ioctl_config(struct file *filep, unsigned int cmd,
 		if (copy_from_user(&flash_info, argp, sizeof(flash_info))) {
 			ERR_COPY_FROM_USER();
 			rc = -EFAULT;
-		} else {
-			if (s_effectState == 1 && flash_info.flashtype == LED_FLASH) {
+		} else
+		{
+			if (s_effectState == 1 && flash_info.flashtype == LED_FLASH)
+			{
 				pr_info("MSM_CAM_IOCTL_FLASH_CTRL %d\n", s_effectState);
 				if (flash_info.ctrl_data.led_state == 1)
 					flash_info.ctrl_data.led_state = 9;
@@ -3221,15 +3193,6 @@ static int __msm_release(struct msm_sync *sync)
 		/*sensor release */
 		pr_info("%s, s_release\n", __func__);
 		sync->sctrl.s_release();
-
-/*HTC_START Horng 20110905*/
-/*Change the release sequence by QCT suggestion*/
-		pr_info("[CAM] %s, msm_camio_disable\n", __func__);
-		msm_camio_disable(sync->pdev);
-		pr_info("[CAM] %s, msm_camio_set_perf_lvl\n", __func__);
-		msm_camio_set_perf_lvl(S_EXIT);
-/*HTC_END*/
-
 		pr_info("%s, msm_camio_sensor_clk_off\n", __func__);
 		msm_camio_sensor_clk_off(sync->pdev);
 		if (sync->sfctrl.strobe_flash_release) {
@@ -3241,10 +3204,6 @@ static int __msm_release(struct msm_sync *sync)
 		kfree(sync->cropinfo);
 		sync->cropinfo = NULL;
 		sync->croplen = 0;
-		/*re-init flag*/
-		sync->ignore_qcmd = false;
-		sync->ignore_qcmd_type = -1;
-		sync->qcmd_done = false;
 		pr_info("%s, free frame pmem region\n", __func__);
 		hlist_for_each_entry_safe(region, hnode, n,
 				&sync->pmem_frames, list) {
@@ -3869,12 +3828,6 @@ vfe_for_config:
 	CDBG("[CAM] %s: msm_enqueue event_q\n", __func__);
 	if (sync->frame_q.len <= 100 && sync->event_q.len <= 100) {
 		msm_enqueue(&sync->event_q, &qcmd->list_config);
-	} else if (sync->event_q.len > 100) {
-		pr_err("%s, Error Event Queue limit exceeded f_q = %d, e_q = %d\n",
-			__func__, sync->frame_q.len, sync->event_q.len);
-		qcmd->error_code = 0xffffffff;
-		qcmd->command = NULL;
-		msm_enqueue(&sync->frame_q, &qcmd->list_frame);
 	} else {
 		pr_err("[CAM] %s, Error Queue limit exceeded f_q = %d, e_q = %d\n",
 			__func__, sync->frame_q.len, sync->event_q.len);
@@ -4004,11 +3957,10 @@ static struct msm_vfe_callback msm_vfe_s = {
 	.vfe_free = msm_vfe_sync_free,
 };
 
-static int __msm_open(struct msm_cam_device *pmsm, const char *const apps_id,
+static int __msm_open(struct msm_sync *sync, const char *const apps_id,
 			int is_controlnode)
 {
 	int rc = 0;
-	struct msm_sync *sync = pmsm->sync;
 
 	mutex_lock(&sync->lock);
 	if (sync->apps_id && strcmp(sync->apps_id, apps_id)
@@ -4035,14 +3987,13 @@ static int __msm_open(struct msm_cam_device *pmsm, const char *const apps_id,
 			if (rc < 0) {
 				pr_err("[CAM] %s: setting sensor clocks failed: %d\n",
 					__func__, rc);
-				goto msm_open_err;
+				goto msm_open_done;
 			}
 			rc = sync->sctrl.s_init(sync->sdata);
 			if (rc < 0) {
 				pr_err("[CAM] %s: sensor init failed: %d\n",
 					__func__, rc);
-				msm_camio_sensor_clk_off(sync->pdev);
-				goto msm_open_err;
+				goto msm_open_done;
 			}
 			pr_info("%s: vfe_init", __func__);
 			rc = sync->vfefn.vfe_init(&msm_vfe_s,
@@ -4050,14 +4001,12 @@ static int __msm_open(struct msm_cam_device *pmsm, const char *const apps_id,
 			if (rc < 0) {
 				pr_err("[CAM] %s: vfe_init failed at %d\n",
 					__func__, rc);
-				sync->sctrl.s_release();
-				msm_camio_sensor_clk_off(sync->pdev);
-				goto msm_open_err;
+				goto msm_open_done;
 			}
 		} else {
 			pr_err("[CAM] %s: no sensor init func\n", __func__);
 			rc = -ENODEV;
-			goto msm_open_err;
+			goto msm_open_done;
 		}
 		msm_camvpe_fn_init(&sync->vpefn, sync);
 
@@ -4076,11 +4025,6 @@ static int __msm_open(struct msm_cam_device *pmsm, const char *const apps_id,
 	sync->opencnt++;
 
 msm_open_done:
-	mutex_unlock(&sync->lock);
-	return rc;
-
-msm_open_err:
-	atomic_set(&pmsm->opened, 0);
 	mutex_unlock(&sync->lock);
 	return rc;
 }
@@ -4107,7 +4051,7 @@ static int msm_open_common(struct inode *inode, struct file *filep,
 		return rc;
 	}
 
-	rc = __msm_open(pmsm, MSM_APPS_ID_PROP, is_controlnode);
+	rc = __msm_open(pmsm->sync, MSM_APPS_ID_PROP, is_controlnode);
 	if (rc < 0)
 		return rc;
 	filep->private_data = pmsm;
@@ -4176,7 +4120,7 @@ static int __msm_v4l2_control(struct msm_sync *sync,
 
 	rcmd = __msm_control(sync, v4l2_ctrl_q, qcmd, out->timeout_ms);
 
-	if (rcmd == NULL || IS_ERR(rcmd)) {
+	if (IS_ERR(rcmd)) {
 		rc = PTR_ERR(rcmd);
 		goto end;
 	}
@@ -4187,7 +4131,7 @@ static int __msm_v4l2_control(struct msm_sync *sync,
 	memcpy(out->value, ctrl->value, ctrl->length);
 
 end:
-	if (rcmd) free_qcmd(rcmd);
+	free_qcmd(rcmd);
 	CDBG("[CAM] %s: rc %d\n", __func__, rc);
 	return rc;
 }

@@ -71,7 +71,7 @@ struct s5k3h1gx_i2c_reg_conf s5k3h1gx_common_settings_array_mipi[] =
   { 0x3083 , 0x21 },
   { 0x3011 , 0x5F },
   { 0x3156 , 0xE2 },
-  { 0x3027 , 0x3E }, /* DBLR Clock Setting = Vt_pix_clk_freq/2=150 */
+  { 0x3027 , 0x0E },
   { 0x300f , 0x02 },
   { 0x3072 , 0x13 },
   { 0x3073 , 0x61 },
@@ -108,15 +108,15 @@ struct s5k3h1gx_i2c_reg_conf s5k3h1gx_common_settings_array_mipi[] =
   { 0x301A , 0xC4 },
   { 0x302d , 0x19 },
   { 0x302b , 0x04 },
-  { 0x30c9 , 0x01 }, /* mipi voltage driving strength 10% increase */
-  { 0x0305 , 0x06 }, /* pre_pll_clk_div = 6 */
+  { 0x0305 , 0x04 }, /* pre_pll_clk_div = 4 */
   { 0x0306 , 0x00 }, /* pll_multiplier */
-  { 0x0307 , 0xB9 }, /* pll_multiplier = 185 */
+  { 0x0307 , 0x66 }, /* pll_multiplier = 102 */
   { 0x0303 , 0x01 }, /* vt_sys_clk_div = 1 */
   { 0x0301 , 0x05 }, /* vt_pix_clk_div = 5 */
   { 0x030B , 0x01 }, /* op_sys_clk_div = 1 */
   { 0x0309 , 0x05 }, /* op_pix_clk_div = 5 */
-  { 0x30CC , 0xb0 }, /* DPHY_band_ctrl 560 ~ 640Mbps */
+  { 0x30C9 , 0x01 }, /* mipi voltage driving strength 10% increase */
+  { 0x30CC , 0xA0 }, /* DPHY_band_ctrl 560 ~ 640Mbps */
 };
 
 struct s5k3h1gx_i2c_reg_conf s5k3h1gx_common_settings_array_parallel[] =
@@ -219,57 +219,15 @@ struct s5k3h1gx_i2c_reg_conf s5k3h1gx_qtr_settings_array_mipi[] =
   { 0x0205 , 0x20 },
   { 0x0342 , 0x0D }, /* Line_length_pck 3470d */
   { 0x0343 , 0x8E },
-  { 0x0340 , 0x05 }, /* Frame_length_lines 1392d */
-  { 0x0341 , 0x8D },
+  { 0x0340 , 0x04 }, /* Frame_length_lines 1248d */
+  { 0x0341 , 0xE0 },
   { 0x300E , 0xED }, /* Reserved */
   { 0x3085 , 0x00 }, /* Reserved */
   { 0x301D , 0x81 }, /* Reserved */
   { 0x3086 , 0x03 }, /* Reserved */
   { 0x3087 , 0x34 }, /* Reserved */
-  { 0x3065 , 0x35 }, /* Reserved */
+  { 0x3065 , 0x15 }, /* Reserved */
   { 0x3028 , 0x40 }, /* Reserved */
-};
-
-
-struct s5k3h1gx_i2c_reg_conf s5k3h1gx_video_settings_array_mipi[] =
-{
-  { 0x0344 , 0x01 }, /* X addr start */
-  { 0x0345 , 0x88 },
-  { 0x0346 , 0x02 }, /* Y addr start */
-  { 0x0347 , 0x12 },
-  { 0x0348 , 0x0B }, /* X addr end */
-  { 0x0349 , 0x47 },
-  { 0x034A , 0x07 }, /* Y addr end */
-  { 0x034B , 0x8D },
-
-  { 0x0381 , 0x01 }, /* x_even_inc = 1 */
-  { 0x0383 , 0x01 }, /* x_odd_inc = 1 */
-  { 0x0385 , 0x01 }, /* y_even_inc = 1 */
-  { 0x0387 , 0x01 }, /* y_odd_inc = 1 */
-  { 0x0105 , 0x01 }, /* skip corrupted frame - for preview flash when doing hjr af */
-  { 0x034C , 0x09 }, /* x_output_size = 2528 */
-  { 0x034D , 0xC0 },
-  { 0x034E , 0x05 }, /* y_output_size = 1424 */
-  { 0x034F , 0x7C },
-
-  { 0x0200 , 0x06 }, /* fine integration time */
-  { 0x0201 , 0xC2 },
-  { 0x0202 , 0x05 }, /* Coarse integration time */
-  { 0x0203 , 0x7C },
-  { 0x0204 , 0x00 }, /* Analog gain */
-  { 0x0205 , 0x20 },
-  { 0x0342 , 0x0D }, /* Line_length_pck 3470d */
-  { 0x0343 , 0x8E },
-  { 0x0340 , 0x05 }, /* Frame_length_lines 1440d */
-  { 0x0341 , 0x8C },
-
-  { 0x300E , 0xE9 }, /* Reserved */
-  { 0x3085 , 0x01 }, /* Reserved */
-  { 0x301D , 0x01 }, /* Reserved */
-  { 0x3086 , 0x03 }, /* Reserved */
-  { 0x3087 , 0x34 }, /* Reserved */
-  { 0x3065 , 0x35 }, /* Reserved */
-  { 0x3028 , 0x41 }, /* Reserved */
 };
 
 struct s5k3h1gx_i2c_reg_conf s5k3h1gx_qtr_settings_array_parallel[] =
@@ -372,7 +330,7 @@ struct s5k3h1gx_i2c_reg_conf s5k3h1gx_full_settings_array_mipi[] =
   { 0x301D , 0x01 }, /* Reserved */
   { 0x3086 , 0x03 }, /* Reserved */
   { 0x3087 , 0x34 }, /* Reserved */
-  { 0x3065 , 0x35 }, /* Reserved */
+  { 0x3065 , 0x15 }, /* Reserved */
   { 0x3028 , 0x41 }, /* Reserved */
 };
 
@@ -456,9 +414,6 @@ struct s5k3h1gx_reg_t s5k3h1gx_regs = {
 	.qtr_mipi_size = ARRAY_SIZE(s5k3h1gx_qtr_settings_array_mipi),
 	.qtr_parallel = &s5k3h1gx_qtr_settings_array_parallel[0],
 	.qtr_parallel_size = ARRAY_SIZE(s5k3h1gx_qtr_settings_array_parallel),
-
-	.video_mipi = &s5k3h1gx_video_settings_array_mipi[0],
-	.video_mipi_size = ARRAY_SIZE(s5k3h1gx_video_settings_array_mipi),
 
 	.full_mipi = &s5k3h1gx_full_settings_array_mipi[0],
 	.full_mipi_size = ARRAY_SIZE(s5k3h1gx_full_settings_array_mipi),

@@ -397,8 +397,7 @@ int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
 /* Below functions are added for V4L2 kernel APIs */
 struct msm_v4l2_driver {
 	struct msm_sync *sync;
-/*	int (*open)(struct msm_sync *, const char *apps_id, int); */
-	int (*open)(struct msm_cam_device *, const char *apps_id, int);
+	int (*open)(struct msm_sync *, const char *apps_id, int);
 	int (*release)(struct msm_sync *);
 	int (*ctrl)(struct msm_sync *, struct msm_ctrl_cmd *);
 	int (*reg_pmem)(struct msm_sync *, struct msm_pmem_info *);
@@ -490,9 +489,6 @@ enum msm_bus_perf_setting {
 	S_PREVIEW,
 	S_VIDEO,
 	S_CAPTURE,
-	S_ZSL,
-	S_STEREO_VIDEO,
-	S_STEREO_CAPTURE,
 	S_DEFAULT,
 	S_EXIT
 };
@@ -544,12 +540,4 @@ void msm_camio_csi_misr_debug_on(void);
 
 void msm_camio_csi_core_soft_reset(void);
 void msm_camio_csi_core_on(void);
-//HTC_START Max Sun 20110721
-void msm_camio_enable_csi_log(void);
-void msm_camio_disable_csi_log(void);
-//HTC_END
-
-/*HTC_START Horng 20110905*/
-void msm_mipi_csi_disable(void);
-/*HTC_END*/
 #endif

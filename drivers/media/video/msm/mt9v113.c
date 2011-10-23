@@ -702,8 +702,37 @@ reg_init_fail:
 	return rc;
 }
 
+int mt9v113_set_flip_mirror(struct msm_camera_sensor_info *info)
+{
+	int rc = 0;
+	if (info != NULL) {
+		if (info->mirror_mode) {
+			rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x2717, WORD_LEN);
+			rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0025, WORD_LEN);
+			rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x272D, WORD_LEN);
+			rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0025, WORD_LEN);
+		} else {
+			rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x2717, WORD_LEN);
+			rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0026, WORD_LEN);
+			rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x272D, WORD_LEN);
+			rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0026, WORD_LEN);
+		}
+		if (rc < 0)
+			goto set_flip_mirror_fail;
+	} else {
+		pr_err("[CAM]camera sensor info is NULL");
+		rc = -1;
+		goto set_flip_mirror_fail;
+	}
+
+	return rc;
+set_flip_mirror_fail:
+	pr_err("[CAM]mt9v113 setting flip mirror fail\n");
+	return rc;
+}
+
 /* 0726 add new feature */
-static int pre_mirror_mode = -1;
+static int pre_mirror_mode;
 static int mt9v113_set_front_camera_mode(enum frontcam_t frontcam_value)
 {
 	int rc = 0;
@@ -713,78 +742,70 @@ static int mt9v113_set_front_camera_mode(enum frontcam_t frontcam_value)
 	if (op_mode == SENSOR_SNAPSHOT_MODE)
 		return 0;
 
-	pr_info("[CAM]%s: frontcam_value = %d, mirror_mode = %d\n", __func__, frontcam_value, mt9v113_ctrl->sensordata->mirror_mode);
-
-	if (pre_mirror_mode == frontcam_value) {
-		pr_info("[CAM]%s: frontcam_value == pre_mirror_mode\n", __func__);
-		return 0;
-	}
+	pr_info("[CAM]%s: frontcam_value=%d\n", __func__, frontcam_value);
 
 	switch (frontcam_value) {
-		case CAMERA_MIRROR:
-			/* mirror and flip */
-			if (mt9v113_ctrl->sensordata->mirror_mode) {
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x2717, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0024, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x272D, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0024, WORD_LEN);
-			} else {
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x2717, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0027, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x272D, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0027, WORD_LEN);
-			}
+	case CAMERA_MIRROR:
+		/*mirror and flip*/
+	if (mt9v113_ctrl->sensordata->mirror_mode) {
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x2717, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0024, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x272D, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0024, WORD_LEN);
+	} else {
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x2717, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0027, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x272D, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0027, WORD_LEN);
+	}
 
-			if (rc < 0) {
-				pr_err("setting CAMERA_MIRROR failed\n");
-				return -EIO;
-			} else {
-				pr_info("setting CAMERA_MIRROR succeeded\n");
-			}
+	if (rc < 0)
+		return -EIO;
 
-			break;
-		case CAMERA_REVERSE:
-			/* reverse mode */
-			if (mt9v113_ctrl->sensordata->mirror_mode) {
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x2717, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0025, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x272D, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0025, WORD_LEN);
-			} else {
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x2717, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0026, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x272D, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0026, WORD_LEN);
-			}
+		break;
+	case CAMERA_REVERSE:
+		/*reverse mode*/
+	if (mt9v113_ctrl->sensordata->mirror_mode) {
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x2717, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0025, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x272D, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0025, WORD_LEN);
+	} else {
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x2717, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0026, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x272D, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0026, WORD_LEN);
+	}
 
-			if (rc < 0)
-				return -EIO;
+	if (rc < 0)
+		return -EIO;
 
-			break;
+		break;
 
-		case CAMERA_PORTRAIT_REVERSE:
-			/* portrait reverse mode *//* 0x25: do mirror */
-			if (mt9v113_ctrl->sensordata->mirror_mode) {
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x2717, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0026, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x272D, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0026, WORD_LEN);
-			} else {
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x2717, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0025, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x272D, WORD_LEN);
-				rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0025, WORD_LEN);
-			}
+	case CAMERA_PORTRAIT_REVERSE:
+	/*portrait reverse mode*//* 0x25: do mirror */
+	if (mt9v113_ctrl->sensordata->mirror_mode) {
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x2717, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0026, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x272D, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0026, WORD_LEN);
+	} else {
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x2717, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0025, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0x272D, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0025, WORD_LEN);
+	}
 
-			if (rc < 0)
-				return -EIO;
+	if (rc < 0)
+		return -EIO;
 
-			break;
-		default:
-			break;
+		break;
+	default:
+		break;
 	}
 
 	/* refresh sensor */
+	if (pre_mirror_mode != frontcam_value) {
 	pr_info("%s: re-flash\n", __func__);
 
 	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0xA103, WORD_LEN);
@@ -799,10 +820,11 @@ static int mt9v113_set_front_camera_mode(enum frontcam_t frontcam_value)
 			break;
 		msleep(1);
 	}
-	if (k == CHECK_STATE_TIME) { /* time out */
-		pr_err("re-flash time out\n");
+	if (k == CHECK_STATE_TIME) /* time out */
 		return -EIO;
+
 	}
+	pre_mirror_mode = frontcam_value;
 
 	msleep(20);
 
@@ -822,10 +844,9 @@ static int mt9v113_set_front_camera_mode(enum frontcam_t frontcam_value)
 		return -EIO;
 #endif
 
-	pre_mirror_mode = frontcam_value;
-
 	return 0;
 }
+
 
 static int mt9v113_set_sensor_mode(int mode)
 {
@@ -850,7 +871,6 @@ static int mt9v113_set_sensor_mode(int mode)
 			rc = resume();
 			if (rc < 0)
 				pr_err("mt9v113 resume failed\n");
-
 		}
 	}
 	switch (mode) {
@@ -1153,7 +1173,6 @@ static int mt9v113_set_contrast(enum contrast_mode contrast_value)
 }
 
 /* 20110103 add new effect feature */
-static int pre_effect;
 static int mt9v113_set_effect(int effect)
 {
 	int rc = 0, k = 0;
@@ -1163,10 +1182,6 @@ static int mt9v113_set_effect(int effect)
 		return 0;
 
 	pr_info("[CAM]%s: effect = %d\n", __func__, effect);
-
-	/* 20110103 add new effect feature */
-	if (pre_effect == effect)
-		return 0;
 
 	switch (effect) {
 	case CAMERA_EFFECT_OFF:
@@ -1303,9 +1318,6 @@ static int mt9v113_set_effect(int effect)
 		   __func__, effect);
 		return -EINVAL;
 	}
-
-	/* 20110103 add new effect feature */
-	pre_effect = effect;
 
 	return 0;
 }
@@ -1539,6 +1551,145 @@ static int mt9v113_set_wb(enum wb_mode wb_value)
 }
 
 
+static int mt9v113_get_iso(uint16_t *real_iso_value)
+{
+	int rc = 0;
+	unsigned short check_value;
+
+	/* Work-around for default iso value as ISO_400 */
+	*real_iso_value = 400;
+
+	rc = mt9v113_i2c_read_w(mt9v113_client->addr, 0x3028, &check_value);
+	if (rc < 0)
+		return -EIO;
+
+	*real_iso_value = (check_value * 100) / 8;
+
+	pr_info("%s real_iso_value: %d\n", __func__, *real_iso_value);
+	return rc;
+}
+
+static int mt9v113_set_iso(enum iso_mode iso_value)
+{
+	int rc = 0, k = 0;
+	unsigned short check_value;
+	pr_info("[CAM]%s: iso_value =%d\n", __func__, iso_value);
+
+	switch (iso_value) {
+	case CAMERA_ISO_AUTO:
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0xA20E, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0080, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0xA103, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0005, WORD_LEN);
+		if (rc < 0)
+			return -EIO;
+
+		for (k = 0; k < CHECK_STATE_TIME; k++) {  /* retry 100 times */
+			rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C,
+				0xA103, WORD_LEN);
+			rc = mt9v113_i2c_read_w(mt9v113_client->addr, 0x0990,
+				&check_value);
+			if (check_value == 0x0000) /* check state of 0xA103 */
+				break;
+			msleep(1);
+		}
+		if (k == CHECK_STATE_TIME) /* time out */
+			return -EIO;
+
+		break;
+	case CAMERA_ISO_100:
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0xA20E, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0026, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0xA103, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0005, WORD_LEN);
+		if (rc < 0)
+			return -EIO;
+
+		for (k = 0; k < CHECK_STATE_TIME; k++) {  /* retry 100 times */
+			rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C,
+				0xA103, WORD_LEN);
+			rc = mt9v113_i2c_read_w(mt9v113_client->addr, 0x0990,
+				&check_value);
+			if (check_value == 0x0000) /* check state of 0xA103 */
+				break;
+			msleep(1);
+		}
+		if (k == CHECK_STATE_TIME) /* time out */
+			return -EIO;
+
+		break;
+	case CAMERA_ISO_200:
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0xA20E, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0046, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0xA103, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0005, WORD_LEN);
+		if (rc < 0)
+			return -EIO;
+
+		for (k = 0; k < CHECK_STATE_TIME; k++) {  /* retry 100 times */
+			rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C,
+				0xA103, WORD_LEN);
+			rc = mt9v113_i2c_read_w(mt9v113_client->addr, 0x0990,
+				&check_value);
+			if (check_value == 0x0000) /* check state of 0xA103 */
+				break;
+			msleep(1);
+		}
+		if (k == CHECK_STATE_TIME) /* time out */
+			return -EIO;
+
+		break;
+	case CAMERA_ISO_400:
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0xA20E, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0078, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0xA103, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0005, WORD_LEN);
+		if (rc < 0)
+			return -EIO;
+
+		for (k = 0; k < CHECK_STATE_TIME; k++) {  /* retry 100 times */
+			rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C,
+				0xA103, WORD_LEN);
+			rc = mt9v113_i2c_read_w(mt9v113_client->addr, 0x0990,
+				&check_value);
+			if (check_value == 0x0000) /* check state of 0xA103 */
+				break;
+			msleep(1);
+		}
+		if (k == CHECK_STATE_TIME) /* time out */
+			return -EIO;
+
+		break;
+	case CAMERA_ISO_800:
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0xA20E, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x00A0, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C, 0xA103, WORD_LEN);
+	rc = mt9v113_i2c_write(mt9v113_client->addr, 0x0990, 0x0005, WORD_LEN);
+		if (rc < 0)
+			return -EIO;
+
+		for (k = 0; k < CHECK_STATE_TIME; k++) {  /* retry 100 times */
+			rc = mt9v113_i2c_write(mt9v113_client->addr, 0x098C,
+				0xA103, WORD_LEN);
+			rc = mt9v113_i2c_read_w(mt9v113_client->addr, 0x0990,
+				&check_value);
+			if (check_value == 0x0000) /* check state of 0xA103 */
+				break;
+			msleep(1);
+		}
+		if (k == CHECK_STATE_TIME) /* time out */
+			return -EIO;
+
+		break;
+	default:
+		pr_info("[CAM]%s: Not support ISO value = %d\n",
+			__func__, iso_value);
+		 return -EINVAL;
+	}
+	return 0;
+}
+
+
 #ifdef CONFIG_MSM_CAMERA_8X60
 static int mt9v113_vreg_enable(struct platform_device *pdev)
 {
@@ -1607,7 +1758,6 @@ int mt9v113_sensor_open_init(struct msm_camera_sensor_info *data)
 #ifdef CONFIG_MSM_CAMERA_8X60
 	uint16_t check_value = 0;
 #endif
-	pre_mirror_mode = -1;
 
 	if (data == NULL) {
 		pr_err("[CAM]%s sensor data is NULL\n", __func__);
@@ -1696,6 +1846,19 @@ probe_suspend_fail_retry_2:
 		rc = mt9v113_reg_init();
 		if (rc < 0) {
 			pr_err("[CAM]%s: mt9v113_reg_init fail\n", __func__);
+
+			if (suspend_fail_retry_count_2 > 0) {
+				suspend_fail_retry_count_2--;
+				pr_info("[CAM]%s: mt9v113 reg_init fail start retry mechanism !!!\n", __func__);
+				goto probe_suspend_fail_retry_2;
+			}
+
+			goto init_fail;
+		}
+		/*set flip/mirror register*/
+		rc = mt9v113_set_flip_mirror(data);
+		if (rc < 0) {
+			pr_err("[CAM]%s: mt9v113_set_flip_mirror fail\n", __func__);
 			goto init_fail;
 		}
 
@@ -1796,6 +1959,16 @@ int mt9v113_sensor_config(void __user *argp)
 		break;
 	case CFG_SET_FRONT_CAMERA_MODE: /*0726 add new feature*/
 		rc = mt9v113_set_front_camera_mode(cfg_data.cfg.frontcam_value);
+		break;
+	case CFG_GET_ISO:
+		rc = mt9v113_get_iso(&cfg_data.cfg.real_iso_value);
+		if (copy_to_user((void *)argp,
+			&cfg_data, sizeof(struct sensor_cfg_data))) {
+			pr_err("[CAM]%s copy to user error", __func__);
+		}
+		break;
+	case CFG_SET_ISO:
+		rc = mt9v113_set_iso(cfg_data.cfg.iso_value);
 		break;
 	default:
 		rc = -EINVAL;
@@ -2093,6 +2266,18 @@ probe_suspend_fail_retry:
 	rc = mt9v113_reg_init();
 	if (rc < 0) {
 		pr_err("[CAM]%s: mt9v113_reg_init fail\n", __func__);
+		if (suspend_fail_retry_count > 0) {
+			suspend_fail_retry_count--;
+			pr_info("[CAM]%s: mt9v113 mt9v113_reg_init fail start retry mechanism !!!\n", __func__);
+			goto probe_suspend_fail_retry;
+		}
+
+		goto probe_fail_close_pwr;
+	}
+	/*set flip/mirror register*/
+	rc = mt9v113_set_flip_mirror(info);
+	if (rc < 0) {
+		pr_err("[CAM]%s: mt9v113_set_flip_mirror fail\n", __func__);
 		goto probe_fail_close_pwr;
 	}
 

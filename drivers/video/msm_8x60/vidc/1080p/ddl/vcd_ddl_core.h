@@ -77,7 +77,7 @@
 #define DDL_ENC_MAX_DPB_BUFFERS           4
 
 #define DDL_FW_AUX_HOST_CMD_SPACE_SIZE         (DDL_KILO_BYTE(10))
-#define DDL_FW_INST_GLOBAL_CONTEXT_SPACE_SIZE  (DDL_KILO_BYTE(500))
+#define DDL_FW_INST_GLOBAL_CONTEXT_SPACE_SIZE  (DDL_KILO_BYTE(800))
 #define DDL_FW_H264DEC_CONTEXT_SPACE_SIZE      (DDL_KILO_BYTE(800))
 #define DDL_FW_OTHER_CONTEXT_SPACE_SIZE        (DDL_KILO_BYTE(10))
 
@@ -96,9 +96,6 @@
 
 #define DDL_MAX_H264_QP            51
 #define DDL_MAX_MPEG4_QP           31
-
-#define DDL_CONCEALMENT_Y_COLOR                 16
-#define DDL_CONCEALMENT_C_COLOR                 128
 
 #define DDL_ALLOW_DEC_FRAMESIZE(width, height) \
 	((DDL_NO_OF_MB(width, height) <= \

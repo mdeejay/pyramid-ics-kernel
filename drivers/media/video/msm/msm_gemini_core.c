@@ -93,8 +93,8 @@ int msm_gemini_core_reset(uint8_t op_mode, void *base, int size)
 	memset(&we_pingpong_buf, 0, sizeof(we_pingpong_buf));
 	spin_lock_irqsave(&reset_lock, flags);
 	reset_done_ack = 0;
-	msm_gemini_hw_reset(base, size);
 	spin_unlock_irqrestore(&reset_lock, flags);
+	msm_gemini_hw_reset(base, size);
 	rc = wait_event_interruptible_timeout(
 			reset_wait,
 			reset_done_ack,
@@ -123,13 +123,13 @@ int msm_gemini_core_reset(uint8_t op_mode, void *base, int size)
 	return 0;
 }
 
-void msm_gemini_core_release(int release_buf)
+void msm_gemini_core_release(void)
 {
 	int i = 0;
 	for (i = 0; i < 2; i++) {
-		if (we_pingpong_buf.buf_status[i] && release_buf)
+		if (we_pingpong_buf.buf_status[i]) {
 			msm_gemini_platform_p2v(we_pingpong_buf.buf[i].file);
-		we_pingpong_buf.buf_status[i] = 0;
+		}
 	}
 }
 
@@ -169,17 +169,6 @@ int msm_gemini_core_we_buf_update(struct msm_gemini_core_buf *buf)
 	we_pingpong_buf.buf_status[we_pingpong_index] = 0;
 	we_pingpong_index = (we_pingpong_index + 1)%2;
 	rc = msm_gemini_hw_pingpong_update(&we_pingpong_buf, buf);
-	return 0;
-}
-
-int msm_gemini_core_we_buf_reset(struct msm_gemini_hw_buf *buf)
-{
-	int i = 0;
-	for (i = 0; i < 2; i++) {
-		if (we_pingpong_buf.buf[i].y_buffer_addr
-					== buf->y_buffer_addr)
-			we_pingpong_buf.buf_status[i] = 0;
-	}
 	return 0;
 }
 
@@ -236,12 +225,12 @@ irqreturn_t msm_gemini_core_irq(int irq_num, void *context)
 
 	/*For reset and framedone IRQs, clear all bits*/
 	if (gemini_irq_status & 0x400) {
-		msm_gemini_hw_irq_clear(HWIO_JPEG_IRQ_CLEAR_RMSK,
-			JPEG_IRQ_CLEAR_ALL);
 		spin_lock_irqsave(&reset_lock, flags);
 		reset_done_ack = 1;
 		spin_unlock_irqrestore(&reset_lock, flags);
 		wake_up(&reset_wait);
+		msm_gemini_hw_irq_clear(HWIO_JPEG_IRQ_CLEAR_RMSK,
+			JPEG_IRQ_CLEAR_ALL);
 	} else if (gemini_irq_status & 0x1) {
 		msm_gemini_hw_irq_clear(HWIO_JPEG_IRQ_CLEAR_RMSK,
 			JPEG_IRQ_CLEAR_ALL);

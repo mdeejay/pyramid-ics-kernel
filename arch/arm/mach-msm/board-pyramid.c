@@ -829,17 +829,17 @@ static int camera_sensor_power_enable(char *power, unsigned volt)
 
 	sensor_power = regulator_get(NULL, power);
 	if (IS_ERR(sensor_power)) {
-		pr_err("[Camera]%s: Unable to get %s\n", __func__, power);
+		pr_err("[CAM]%s: Unable to get %s\n", __func__, power);
 		return -ENODEV;
 	}
 	rc = regulator_set_voltage(sensor_power, volt, volt);
 	if (rc) {
-		pr_err("[Camera]%s: unable to set %s voltage to %d rc:%d\n",
+		pr_err("[CAM]%s: unable to set %s voltage to %d rc:%d\n",
 			__func__, power, volt, rc);
 	}
 	rc = regulator_enable(sensor_power);
 	if (rc) {
-		pr_err("[Camera]%s: Enable regulator %s failed\n", __func__, power);
+		pr_err("[CAM]%s: Enable regulator %s failed\n", __func__, power);
 	}
 	regulator_put(sensor_power);
 	return rc;
@@ -855,12 +855,12 @@ static int camera_sensor_power_disable(char *power)
 
 	sensor_power = regulator_get(NULL, power);
 	if (IS_ERR(sensor_power)) {
-		pr_err("[Camera]%s: Unable to get %s\n", __func__, power);
+		pr_err("[CAM]%s: Unable to get %s\n", __func__, power);
 		return -ENODEV;
 	}
 	rc = regulator_disable(sensor_power);
 	if (rc) {
-		pr_err("[Camera]%s: Enable regulator %s failed\n", __func__, power);
+		pr_err("[CAM]%s: Enable regulator %s failed\n", __func__, power);
 	}
 	regulator_put(sensor_power);
 	return rc;
@@ -871,22 +871,22 @@ static int camera_sensor_power_disable(char *power)
 static int Pyramid_sensor_vreg_off(void)
 {
 	int rc;
-	pr_info("[Camera]%s\n", __func__);
+	pr_info("[CAM]%s\n", __func__);
 	/* main / 2nd camera digital power */
 	rc = camera_sensor_power_disable("8058_l9");
-	/*pr_info("[Camera]sensor_power_disable(\"8058_l9\") == %d\n", rc);*/
+	/*pr_info("[CAM]sensor_power_disable(\"8058_l9\") == %d\n", rc);*/
 
 	/* main / 2nd camera analog power */
 	rc = camera_sensor_power_disable("8058_l15");
-	/*pr_info("[Camera]sensor_power_disable(\"8058_l15\") == %d\n", rc);*/
+	/*pr_info("[CAM]sensor_power_disable(\"8058_l15\") == %d\n", rc);*/
 
 	/* IO power off */
 	rc = camera_sensor_power_disable("8058_l12");
-	/*pr_info("[Camera]sensor_power_disable(\"8058_l12\") == %d\n", rc);*/
+	/*pr_info("[CAM]sensor_power_disable(\"8058_l12\") == %d\n", rc);*/
 
 	/* main camera VCM power */
 	rc = camera_sensor_power_disable("8058_l10");
-	/*pr_info("[Camera]sensor_power_disable(\"8058_l10\") == %d\n", rc);*/
+	/*pr_info("[CAM]sensor_power_disable(\"8058_l10\") == %d\n", rc);*/
 
 	mdelay(20);
 
@@ -898,7 +898,7 @@ static int Pyramid_sensor_vreg_on(void)
 {
 	static int first_run = 1;
 	int rc;
-	pr_info("[Camera]%s\n", __func__);
+	pr_info("[CAM]%s\n", __func__);
 
 	/* Work-around for PYD power issue */
 	if (first_run == 1) {
@@ -911,38 +911,38 @@ static int Pyramid_sensor_vreg_on(void)
 
 		/* main camera VCM power */
 		rc = camera_sensor_power_enable("8058_l10", 2850000);
-		/*pr_info("[Camera]sensor_power_enable(\"8058_l10\", 2850) == %d\n", rc);*/
+		/*pr_info("[CAM]sensor_power_enable(\"8058_l10\", 2850) == %d\n", rc);*/
 		/*IO*/
 		rc = camera_sensor_power_enable("8058_l12", 1800000);
-		/*pr_info("[Camera]sensor_power_enable(\"8058_l12\", 1800) == %d\n", rc);*/
+		/*pr_info("[CAM]sensor_power_enable(\"8058_l12\", 1800) == %d\n", rc);*/
 		udelay(50);
 		/* main / 2nd camera analog power */
 		rc = camera_sensor_power_enable("8058_l15", 2800000);
-		/*pr_info("[Camera]sensor_power_enable(\"8058_l15\", 2850) == %d\n", rc);*/
+		/*pr_info("[CAM]sensor_power_enable(\"8058_l15\", 2850) == %d\n", rc);*/
 		udelay(50);
 		/* main / 2nd camera digital power */
 		rc = camera_sensor_power_enable("8058_l9", 1800000);
-		/*pr_info("[Camera]sensor_power_enable(\"8058_l9\", 1800) == %d\n", rc);*/
+		/*pr_info("[CAM]sensor_power_enable(\"8058_l9\", 1800) == %d\n", rc);*/
 
 		mdelay(20);
-		pr_info("[Camera] call Pyramid_sensor_vreg_off() at first boot up !!!\n");
+		pr_info("[CAM] call Pyramid_sensor_vreg_off() at first boot up !!!\n");
 		Pyramid_sensor_vreg_off();
 	}
 
 	/* main camera VCM power */
 	rc = camera_sensor_power_enable("8058_l10", 2850000);
-	/*pr_info("[Camera]sensor_power_enable(\"8058_l10\", 2850) == %d\n", rc);*/
+	/*pr_info("[CAM]sensor_power_enable(\"8058_l10\", 2850) == %d\n", rc);*/
 	/*IO*/
 	rc = camera_sensor_power_enable("8058_l12", 1800000);
-	/*pr_info("[Camera]sensor_power_enable(\"8058_l12\", 1800) == %d\n", rc);*/
+	/*pr_info("[CAM]sensor_power_enable(\"8058_l12\", 1800) == %d\n", rc);*/
 	udelay(50);
 	/* main / 2nd camera analog power */
 	rc = camera_sensor_power_enable("8058_l15", 2800000);
-	/*pr_info("[Camera]sensor_power_enable(\"8058_l15\", 2850) == %d\n", rc);*/
+	/*pr_info("[CAM]sensor_power_enable(\"8058_l15\", 2850) == %d\n", rc);*/
 	udelay(50);
 	/* main / 2nd camera digital power */
 	rc = camera_sensor_power_enable("8058_l9", 1800000);
-	/*pr_info("[Camera]sensor_power_enable(\"8058_l9\", 1800) == %d\n", rc);*/
+	/*pr_info("[CAM]sensor_power_enable(\"8058_l9\", 1800) == %d\n", rc);*/
 
 	mdelay(1);
 
@@ -954,10 +954,10 @@ static int Pyramid_sensor_vreg_on(void)
 static void Pyramid_maincam_clk_switch(void)
 {
 	int rc = 0;
-	pr_info("[Camera]Doing clk switch (Main Cam)\n");
+	pr_info("[CAM]Doing clk switch (Main Cam)\n");
 	rc = gpio_request(CLK_SWITCH, "s5k3h1gx");
 	if (rc < 0)
-		pr_err("[Camera]GPIO (%d) request fail\n", CLK_SWITCH);
+		pr_err("[CAM]GPIO (%d) request fail\n", CLK_SWITCH);
 	else
 		gpio_direction_output(CLK_SWITCH, 0);
 	gpio_free(CLK_SWITCH);
@@ -967,11 +967,11 @@ static void Pyramid_maincam_clk_switch(void)
 static void Pyramid_seccam_clk_switch(void)
 {
 	int rc = 0;
-	pr_info("Doing clk switch (2nd Cam)\n");
+	pr_info("[CAM]Doing clk switch (2nd Cam)\n");
 	rc = gpio_request(CLK_SWITCH, "mt9v113");
 
 	if (rc < 0)
-		pr_err("GPIO (%d) request fail\n", CLK_SWITCH);
+		pr_err("[CAM]GPIO (%d) request fail\n", CLK_SWITCH);
 	else
 		gpio_direction_output(CLK_SWITCH, 1);
 
@@ -1006,7 +1006,7 @@ static void config_gpio_table(uint32_t *table, int len)
 	for (n = 0; n < len; n++) {
 		rc = gpio_tlmm_config(table[n], GPIO_CFG_ENABLE);
 		if (rc) {
-			pr_err("[Camera]%s: gpio_tlmm_config(%#x)=%d\n",
+			pr_err("[CAM]%s: gpio_tlmm_config(%#x)=%d\n",
 				__func__, table[n], rc);
 			break;
 		}

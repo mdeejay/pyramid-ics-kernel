@@ -99,7 +99,6 @@ struct msm_gemini_buf {
 	int      fd;
 
 	void     *vaddr;
-	uint32_t phy_offset;
 
 	uint32_t y_off;
 	uint32_t y_len;

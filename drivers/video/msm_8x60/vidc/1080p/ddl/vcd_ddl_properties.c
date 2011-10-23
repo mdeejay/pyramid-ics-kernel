@@ -827,12 +827,6 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 			else
 				continue;
 			}
-/*HTC_START Fix Klocwork issue*/
-		if (index >= 4) {
-			DDL_MSG_ERROR("INVALID INDEX 4\n");
-			vcd_status = VCD_ERR_ILLEGAL_OP;
-		} else {
-/*HTC_END*/
 		if (property_hdr->sz == sizeof(struct
 			vcd_property_enc_recon_buffer)) {
 			encoder->hw_bufs.dpb_y[index].align_physical_addr =
@@ -856,9 +850,6 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 			encoder->hw_bufs.dpb_c[index].align_physical_addr);
 			vcd_status = VCD_S_SUCCESS;
 			}
-	/*HTC_START*/
-		}
-	/*HTC_END*/
 	}
 	break;
 	case VCD_I_FREE_RECON_BUFFERS:
@@ -1631,11 +1622,23 @@ u32 ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 					(!decoder->progressive_only),
 					decoder->hdr.decoding, NULL);
 	} else {
-		frame_size = &decoder->frame_size;
-		output_buf_req = &decoder->actual_output_buf_req;
-		input_buf_req = &decoder->actual_input_buf_req;
-		min_dpb = decoder->min_dpb_num;
-		y_cb_cr_size = decoder->y_cb_cr_size;
+		if (min_dpb >= decoder->min_dpb_num) {
+			frame_size = &decoder->frame_size;
+			output_buf_req = &decoder->actual_output_buf_req;
+			input_buf_req = &decoder->actual_input_buf_req;
+			min_dpb = decoder->min_dpb_num;
+			y_cb_cr_size = decoder->y_cb_cr_size;
+		} else {
+			u32 max_dpb_size;
+
+			max_dpb_size = DDL_NO_OF_MB(
+				decoder->client_frame_size.stride,
+				decoder->client_frame_size.scan_lines);
+			max_dpb_size *= (decoder->min_dpb_num - 2);
+			DDL_MSG_ERROR("Error: H264MaxDpbSizeExceeded: %d > %d",
+				max_dpb_size, MAX_DPB_SIZE_L4PT0_MBS);
+			return false;
+		}
 	}
 	memset(output_buf_req, 0,
 		sizeof(struct vcd_buffer_requirement));
@@ -1700,7 +1703,7 @@ u32 ddl_get_yuv_buffer_size(struct vcd_property_frame_size *frame_size,
 			total_memory_size = frame_sz.scan_lines *
 						frame_sz.stride;
 		else
-			total_memory_size = frame_sz.height * frame_sz.stride;
+			total_memory_size = frame_sz.height * frame_sz.width;
 		c_offset = DDL_ALIGN(total_memory_size,
 			DDL_LINEAR_MULTIPLY_FACTOR);
 		total_memory_size = c_offset + DDL_ALIGN(
