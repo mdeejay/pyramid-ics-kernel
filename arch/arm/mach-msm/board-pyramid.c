@@ -137,7 +137,7 @@ extern int panel_type;
 #define PANEL_UNKNOWN			2
 
 #define MIN_VOLTAGE 800000
-#define MAX_VOLTAGE 1350000
+#define MAX_VOLTAGE 1300000
 
 /*
  * The UI_INTx_N lines are pmic gpio lines which connect i2c
