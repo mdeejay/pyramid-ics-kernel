@@ -96,8 +96,8 @@
 #define S5K3H1GX_AF_I2C_ADDR 0x18
 #define S5K3H1GX_TOTAL_STEPS_NEAR_TO_FAR 42
 #define S5K3H1GX_SW_DAMPING_STEP 10
-#define S5K3H1GX_MAX_FPS 60
-#define S5K3H1GX_MAX_FPS_PARALLEL 60
+#define S5K3H1GX_MAX_FPS 30
+#define S5K3H1GX_MAX_FPS_PARALLEL 30
 
 /*=============================================================
  SENSOR REGISTER DEFINES
@@ -157,9 +157,7 @@ enum s5k3h1gx_test_mode_t {
 enum s5k3h1gx_resolution_t {
 	QTR_SIZE,
 	FULL_SIZE,
-#ifdef CONFIG_MSM_CAMERA_8X60
 	QVGA_SIZE,
-#endif
 	VIDEO_SIZE,
 	INVALID_SIZE
 };
@@ -557,10 +555,9 @@ static int32_t s5k3h1gx_write_exp_gain
 
 		s5k3h1gx_ctrl->my_reg_gain = gain;
 		s5k3h1gx_ctrl->my_reg_line_count = (uint16_t)line;
-#ifdef CONFIG_MSM_CAMERA_8X60
+
 		if (s5k3h1gx_ctrl->prev_res == QTR_SIZE)
 		{
-#endif
 		if (sinfo->csi_if)
 			fl_lines = SENSOR_QTR_SIZE_HEIGHT +
 				SENSOR_VER_QTR_BLK_LINES;
@@ -570,7 +567,7 @@ static int32_t s5k3h1gx_write_exp_gain
 
 		ll_pck = SENSOR_QTR_SIZE_WIDTH +
 			SENSOR_HRZ_QTR_BLK_PIXELS;
-#ifdef CONFIG_MSM_CAMERA_8X60
+
 		} else /* s5k3h1gx_ctrl->prev_res == FULL_SIZE */
 		{
 
@@ -580,7 +577,7 @@ static int32_t s5k3h1gx_write_exp_gain
 		ll_pck = SENSOR_FULL_SIZE_WIDTH +
 			SENSOR_HRZ_FULL_BLK_PIXELS;
 		}
-#endif
+
 	} else if (s5k3h1gx_ctrl->sensormode == SENSOR_VIDEO_MODE) {
 
 		s5k3h1gx_ctrl->my_reg_gain = gain;
@@ -804,15 +801,6 @@ static int32_t s5k3h1gx_video_config(int mode)
 
 	pr_info("[CAM]s5k3h1gx_setting s5k3h1gx_video_config mode %d\n", mode);
 
-#ifdef CONFIG_MSM_CAMERA_7x30
-	if (mode == SENSOR_VIDEO_MODE)
-	  s5k3h1gx_ctrl->prev_res = VIDEO_SIZE;
-	else if (mode == SENSOR_SNAPSHOT_MODE)
-	  s5k3h1gx_ctrl->prev_res = FULL_SIZE;
-	else
-	  s5k3h1gx_ctrl->prev_res = QTR_SIZE;
-#endif
-
 	pr_info("[CAM]s5k3h1gx_setting s5k3h1gx_video_config curr_res %d, prev_res %d\n",
 		s5k3h1gx_ctrl->curr_res, s5k3h1gx_ctrl->prev_res);
 	if (s5k3h1gx_ctrl->curr_res != s5k3h1gx_ctrl->prev_res) {
@@ -881,9 +869,7 @@ static int32_t s5k3h1gx_set_sensor_mode(int mode,
 	switch (mode) {
 		case SENSOR_PREVIEW_MODE:
 		case SENSOR_VIDEO_MODE:
-#ifdef CONFIG_MSM_CAMERA_8X60
 			s5k3h1gx_ctrl->prev_res = res; /* VIDEO_SIZE, FULL_SIZE, QTR_SIZE */
-#endif
 			rc = s5k3h1gx_video_config(mode);
 			break;
 
@@ -891,9 +877,7 @@ static int32_t s5k3h1gx_set_sensor_mode(int mode,
 			pr_info("[CAM]KPI PA: start sensor snapshot config\n");
 			/* Check V-sync frame timer Start */
 			sinfo->kpi_sensor_start = ktime_to_ns(ktime_get());
-#ifdef CONFIG_MSM_CAMERA_8X60
 			s5k3h1gx_ctrl->pict_res = res;
-#endif
 			rc = s5k3h1gx_snapshot_config(mode);
 			break;
 
@@ -901,9 +885,7 @@ static int32_t s5k3h1gx_set_sensor_mode(int mode,
 			pr_info("[CAM]KPI PA: start sensor snapshot config\n");
 			/* Check V-sync frame timer Start */
 			sinfo->kpi_sensor_start = ktime_to_ns(ktime_get());
-#ifdef CONFIG_MSM_CAMERA_8X60
 			s5k3h1gx_ctrl->pict_res = res;
-#endif
 			rc = s5k3h1gx_raw_snapshot_config(mode);
 			break;
 

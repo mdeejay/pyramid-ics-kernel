@@ -137,7 +137,7 @@ extern int panel_type;
 #define PANEL_UNKNOWN			2
 
 #define MIN_VOLTAGE 800000
-#define MAX_VOLTAGE 1300000
+#define MAX_VOLTAGE 1350000
 
 /*
  * The UI_INTx_N lines are pmic gpio lines which connect i2c
@@ -804,11 +804,6 @@ static uint32_t camera_off_gpio_table[] = {
 	GPIO_CFG(PYRAMID_CAM_CAM1_ID, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* CAM_CAM1_ID */
 };
 
-static uint32_t camera_on_gpio_table_workaround[] = {
-	GPIO_CFG(PYRAMID_CAM_I2C_SDA, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_4MA),		/* CAM_I2C_SDA */
-	GPIO_CFG(PYRAMID_CAM_I2C_SCL, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_8MA),		/* CAM_I2C_SCL */
-};
-
 static uint32_t camera_on_gpio_table[] = {
 	GPIO_CFG(PYRAMID_CAM_I2C_SDA, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_4MA),		/* CAM_I2C_SDA */
 	GPIO_CFG(PYRAMID_CAM_I2C_SCL, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA),		/* CAM_I2C_SCL */
@@ -864,14 +859,15 @@ static int camera_sensor_power_disable(char *power)
 	}
 	regulator_put(sensor_power);
 	return rc;
-
 }
 
 
 static int Pyramid_sensor_vreg_off(void)
 {
-	int rc;
+	int rc = 0;
+
 	pr_info("[CAM]%s\n", __func__);
+
 	/* main / 2nd camera digital power */
 	rc = camera_sensor_power_disable("8058_l9");
 	/*pr_info("[CAM]sensor_power_disable(\"8058_l9\") == %d\n", rc);*/
@@ -888,46 +884,14 @@ static int Pyramid_sensor_vreg_off(void)
 	rc = camera_sensor_power_disable("8058_l10");
 	/*pr_info("[CAM]sensor_power_disable(\"8058_l10\") == %d\n", rc);*/
 
-	mdelay(20);
-
 	return rc;
 }
 
 
 static int Pyramid_sensor_vreg_on(void)
 {
-	static int first_run = 1;
 	int rc;
 	pr_info("[CAM]%s\n", __func__);
-
-	/* Work-around for PYD power issue */
-	if (first_run == 1) {
-		first_run = 0;
-
-		config_gpio_table(camera_on_gpio_table_workaround,
-			ARRAY_SIZE(camera_on_gpio_table_workaround));
-
-		mdelay(10);
-
-		/* main camera VCM power */
-		rc = camera_sensor_power_enable("8058_l10", 2850000);
-		/*pr_info("[CAM]sensor_power_enable(\"8058_l10\", 2850) == %d\n", rc);*/
-		/*IO*/
-		rc = camera_sensor_power_enable("8058_l12", 1800000);
-		/*pr_info("[CAM]sensor_power_enable(\"8058_l12\", 1800) == %d\n", rc);*/
-		udelay(50);
-		/* main / 2nd camera analog power */
-		rc = camera_sensor_power_enable("8058_l15", 2800000);
-		/*pr_info("[CAM]sensor_power_enable(\"8058_l15\", 2850) == %d\n", rc);*/
-		udelay(50);
-		/* main / 2nd camera digital power */
-		rc = camera_sensor_power_enable("8058_l9", 1800000);
-		/*pr_info("[CAM]sensor_power_enable(\"8058_l9\", 1800) == %d\n", rc);*/
-
-		mdelay(20);
-		pr_info("[CAM] call Pyramid_sensor_vreg_off() at first boot up !!!\n");
-		Pyramid_sensor_vreg_off();
-	}
 
 	/* main camera VCM power */
 	rc = camera_sensor_power_enable("8058_l10", 2850000);
