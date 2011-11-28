@@ -70,7 +70,13 @@
 
 #if defined(CUSTOMER_HW2) && defined(CONFIG_WIFI_CONTROL_FUNC)
 #include <linux/wifi_tiwlan.h>
+//HTC_CSP_START
+#include <mach/perflock.h>
+//HTC_CSP_END
 
+//HTC_CSP_START
+dhd_pub_t *priv_dhdp = NULL;
+//HTC_CSP_END
 struct semaphore wifi_control_sem;
 
 struct dhd_bus *g_bus;
@@ -365,6 +371,12 @@ module_param(dhd_pkt_filter_init, uint, 0);
 /* Pkt filter mode control */
 uint dhd_master_mode = TRUE;
 module_param(dhd_master_mode, uint, 1);
+
+/* Pkt filter for Rogers nat keep alive packet, we need change filter mode to filter out*/
+// packet filter for Rogers nat keep alive +++
+int filter_reverse = 0;
+module_param(filter_reverse, int, 0);
+// packet filter for Rogers nat keep alive ---
 
 /* Watchdog thread priority, -1 to use kernel timer */
 int dhd_watchdog_prio = 97;
@@ -888,7 +900,11 @@ dhd_op_if(dhd_if_t *ifp)
 			ret = -ENOMEM;
 		}
 		if (ret == 0) {
-			strcpy(ifp->net->name, ifp->name);
+#ifdef HTC_KlocWork
+            strncpy(ifp->net->name, ifp->name, IFNAMSIZ);
+#else
+            strcpy(ifp->net->name, ifp->name);
+#endif
 			memcpy(netdev_priv(ifp->net), &dhd, sizeof(dhd));
 			if ((err = dhd_net_attach(&dhd->pub, ifp->idx)) != 0) {
 				DHD_ERROR(("%s: dhd_net_attach failed, err %d\n",
@@ -1111,6 +1127,7 @@ dhd_start_xmit(struct sk_buff *skb, struct net_device *net)
 	if (module_remove) {
 		printf("%s: module removed.", __FUNCTION__);
 		dev_kfree_skb(skb); // Add to free skb
+		netif_stop_queue(net);
 		return -ENODEV;
 	}
 
@@ -1124,6 +1141,7 @@ dhd_start_xmit(struct sk_buff *skb, struct net_device *net)
 			DHD_ERROR(("%s: Event RELOAD send up\n", __FUNCTION__));
 			net_os_send_hang_message(net);
 		}
+		dev_kfree_skb(skb);
 		return -ENODEV;
 	}
 
@@ -1131,6 +1149,7 @@ dhd_start_xmit(struct sk_buff *skb, struct net_device *net)
 	if (ifidx == DHD_BAD_IF) {
 		DHD_ERROR(("%s: bad ifidx %d\n", __FUNCTION__, ifidx));
 		netif_stop_queue(net);
+		dev_kfree_skb(skb);
 		return -ENODEV;
 	}
 
@@ -1857,9 +1876,9 @@ dhd_ioctl_entry(struct net_device *net, struct ifreq *ifr, int cmd)
 	 * prevent M4 encryption.
 	 */
 	is_set_key_cmd = ((ioc.cmd == WLC_SET_KEY) ||
-	                 ((ioc.cmd == WLC_SET_VAR) &&
+	                 ((ioc.cmd == WLC_SET_VAR) && (ioc.buf != NULL) && //HTC_KlocWork: add (ioc.buf != NULL) 
 	                        !(strncmp("wsec_key", ioc.buf, 9))) ||
-	                 ((ioc.cmd == WLC_SET_VAR) &&
+	                 ((ioc.cmd == WLC_SET_VAR) && (ioc.buf != NULL) && //HTC_KlocWork: add (ioc.buf != NULL)
 	                        !(strncmp("bsscfg:wsec_key", ioc.buf, 15))));
 	if (is_set_key_cmd) {
 		dhd_wait_pend8021x(net);
@@ -1931,6 +1950,13 @@ dhd_open(struct net_device *net)
 	ifidx = dhd_net2idx(dhd, net);
 
 	DHD_TRACE(("%s: ifidx %d\n", __FUNCTION__, ifidx));
+
+#ifdef HTC_KlocWork
+    if(ifidx < 0) {
+        DHD_ERROR(("[HTCKW] %s: ifidx %d < 0\n", __FUNCTION__, ifidx));
+        return -1;
+    }
+#endif
 
 	if ((dhd->iflist[ifidx]) && (dhd->iflist[ifidx]->state == WLC_E_IF_DEL)) {
 		DHD_ERROR(("%s: Error: called when IF already deleted\n", __FUNCTION__));
@@ -2085,9 +2111,17 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 		strncpy(net->name, iface_name, IFNAMSIZ);
 		net->name[IFNAMSIZ - 1] = 0;
 		len = strlen(net->name);
-		ch = net->name[len - 1];
-		if ((ch > '9' || ch < '0') && (len < IFNAMSIZ - 2))
-			strcat(net->name, "%d");
+#ifdef HTC_KlocWork
+        if(len > 0) {
+            ch = net->name[len - 1];
+            if ((ch > '9' || ch < '0') && (len < IFNAMSIZ - 2))
+                strcat(net->name, "%d");
+        }
+#else
+        ch = net->name[len - 1];
+        if ((ch > '9' || ch < '0') && (len < IFNAMSIZ - 2))
+            strcat(net->name, "%d");
+#endif
 	}
 
 	if (dhd_add_if(dhd, 0, (void *)net, net->name, NULL, 0, 0) == DHD_BAD_IF)
@@ -2301,6 +2335,9 @@ dhd_bus_start(dhd_pub_t *dhdp)
 #ifdef WLC_E_RSSI_LOW 
         setbit(dhdp->eventmask, WLC_E_RSSI_LOW);
 #endif /* WLC_E_RSSI_LOW */
+//HTC_CSP_START
+	setbit(dhdp->eventmask, WLC_E_LOAD_IND);
+//HTC_CSP_END
 #if 0
 #ifdef SOFTAP
 	setbit(dhdp->eventmask, WLC_E_DEAUTH);
@@ -2313,7 +2350,9 @@ dhd_bus_start(dhd_pub_t *dhdp)
 	/* Bus is ready, do any protocol initialization */
 	if ((ret = dhd_prot_init(&dhd->pub)) < 0)
 		return ret;
-
+//HTC_CSP_START
+	priv_dhdp = dhdp;
+//HTC_CSP_END
 	return 0;
 }
 
@@ -2578,9 +2617,17 @@ dhd_module_cleanup(void)
 {
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
+//HTC_CSP_START
+	if (priv_dhdp)
+		dhd_os_start_lock(priv_dhdp);
+//HTC_CSP_END
 	disable_dev_wlc_ioctl();
 	module_remove = 1;
 	module_insert = 0;
+//HTC_CSP_START
+	if (priv_dhdp)
+		dhd_os_start_unlock(priv_dhdp);
+//HTC_CSP_END
 	bcm_mdelay(1000);
 	dhd_bus_unregister();
 #if defined(CUSTOMER_HW2) && defined(CONFIG_WIFI_CONTROL_FUNC)
@@ -2590,7 +2637,7 @@ dhd_module_cleanup(void)
             perf_unlock(&wlan_perf_lock);
 	/* Call customer gpio to turn off power with WL_REG_ON signal */
 	dhd_customer_gpio_wlan_ctrl(WLAN_POWER_OFF);
-        printf(KERN_INFO "[ATS][press_widget][turn_off]\n"); //For Auto Test System log parsing
+        printf("[ATS][press_widget][turn_off]\n"); //For Auto Test System log parsing
 }
 
 
@@ -3180,7 +3227,6 @@ int net_os_send_hang_message(struct net_device *dev)
 	return ret;
 }
 
-//HTC_CSP_START
 void dhd_info_send_hang_message(dhd_pub_t *dhdp)
 {
 	dhd_info_t *dhd = (dhd_info_t *)dhdp->info;
@@ -3194,7 +3240,6 @@ void dhd_info_send_hang_message(dhd_pub_t *dhdp)
 
 	return;
 }
-//HTC_CSP_END
 
 void dhd_bus_country_set(struct net_device *dev, char *country_code)
 {

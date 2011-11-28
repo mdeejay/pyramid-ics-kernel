@@ -1704,9 +1704,13 @@ dhd_pno_set(dhd_pub_t *dhd, wlc_ssid_t* ssids_local, int nssid, ushort scan_fr)
 
 	DHD_TRACE(("%s nssid=%d nchan=%d\n", __FUNCTION__, nssid, scan_fr));
 
-	if ((!dhd) && (!ssids_local)) {
+	if ((!dhd) || (!ssids_local)) {
 		DHD_ERROR(("%s error exit\n", __FUNCTION__));
+#ifdef HTC_KlocWork
+		return err;
+#else
 		err = -1;
+#endif
 	}
 
 	/* Check for broadcast ssid */
@@ -1805,7 +1809,11 @@ int
 wl_iw_parse_data_tlv(char** list_str, void *dst, int dst_size, const char token,
                      int input_size, int *bytes_left)
 {
+#ifdef HTC_KlocWork
+	char* str = NULL;
+#else
 	char* str = *list_str;
+#endif
 	uint16 short_temp;
 	uint32 int_temp;
 
@@ -1813,6 +1821,10 @@ wl_iw_parse_data_tlv(char** list_str, void *dst, int dst_size, const char token,
 		DHD_ERROR(("%s error paramters\n", __FUNCTION__));
 		return -1;
 	}
+
+#ifdef HTC_KlocWork
+	str = *list_str;
+#endif
 
 	/* Clean all dest bytes */
 	memset(dst, 0, dst_size);
@@ -1854,13 +1866,21 @@ int
 wl_iw_parse_channel_list_tlv(char** list_str, uint16* channel_list,
                              int channel_num, int *bytes_left)
 {
+#ifdef HTC_KlocWork
+	char* str = NULL;
+#else
 	char* str = *list_str;
+#endif
 	int idx = 0;
 
 	if ((list_str == NULL) || (*list_str == NULL) ||(bytes_left == NULL) || (*bytes_left < 0)) {
 		DHD_ERROR(("%s error paramters\n", __FUNCTION__));
 		return -1;
 	}
+
+#ifdef HTC_KlocWork
+	str = *list_str;
+#endif
 
 	while (*bytes_left > 0) {
 
@@ -1900,13 +1920,21 @@ wl_iw_parse_channel_list_tlv(char** list_str, uint16* channel_list,
 int
 wl_iw_parse_ssid_list_tlv(char** list_str, wlc_ssid_t* ssid, int max, int *bytes_left)
 {
-	char* str =  *list_str;
+#ifdef HTC_KlocWork
+	char* str = NULL;
+#else
+	char* str = *list_str;
+#endif
 	int idx = 0;
 
 	if ((list_str == NULL) || (*list_str == NULL) || (*bytes_left < 0)) {
 		DHD_ERROR(("%s error paramters\n", __FUNCTION__));
 		return -1;
 	}
+
+#ifdef HTC_KlocWork
+	str = *list_str;
+#endif
 
 	while (*bytes_left > 0) {
 
@@ -1999,7 +2027,11 @@ wl_iw_parse_ssid_list(char** list_str, wlc_ssid_t* ssid, int idx, int max)
 			ssid[idx].SSID_len = 0;
 
 		if (idx < max) {
-			strcpy((char*)ssid[idx].SSID, str);
+#ifdef HTC_KlocWork
+            strncpy((char*)ssid[idx].SSID, str, DOT11_MAX_SSID_LEN);
+#else
+            strcpy((char*)ssid[idx].SSID, str);
+#endif
 			ssid[idx].SSID_len = strlen(str);
 		}
 		idx++;

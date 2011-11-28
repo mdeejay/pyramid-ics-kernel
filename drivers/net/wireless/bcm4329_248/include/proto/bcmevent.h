@@ -132,6 +132,9 @@ typedef BWL_PRE_PACKED_STRUCT struct bcm_event {
 #define WLC_E_ACTION_FRAME      58      
 #define WLC_E_ACTION_FRAME_COMPLETE 59  
 #define WLC_E_RSSI_LOW       	60      /* Send up rssi low event */
+//HTC_CSP_START
+#define WLC_E_LOAD_IND	61
+//HTC_CSP_END
 #define WLC_E_ESCAN_RESULT 69               
 #define WLC_E_WAKE_EVENT	70	
 #define WLC_E_RELOAD        71  

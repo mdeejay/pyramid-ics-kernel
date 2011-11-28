@@ -492,9 +492,7 @@ dhdsdio_set_siaddr_window(dhd_bus_t *bus, uint32 address)
 
 
 /* Turn backplane clock on or off */
-//HTC_CSP_START
 static int htclk_fail = 0;
-//HTC_CSP_END
 static int
 dhdsdio_htclk(dhd_bus_t *bus, bool on, bool pendok)
 {
@@ -621,7 +619,6 @@ dhdsdio_htclk(dhd_bus_t *bus, bool on, bool pendok)
 	}
 	htclk_fail = 0;
 	return BCME_OK;
-//HTC_CSP_START
 error:
 	htclk_fail++;
 	if (htclk_fail >= 3) {
@@ -629,7 +626,6 @@ error:
 		dhd_info_send_hang_message(bus->dhd);
 	}
 	return BCME_ERROR;
-//HTC_CSP_END
 }
 
 /* Change idle/active SD state */
@@ -2857,6 +2853,9 @@ dhd_bus_init(dhd_pub_t *dhdp, bool enforce_mutex)
 
 		/* Set up the interrupt mask and enable interrupts */
 		bus->hostintmask = HOSTINTMASK;
+#ifdef HTC_KlocWork
+    if(bus->regs != NULL)
+#endif
 		W_SDREG(bus->hostintmask, &bus->regs->hostintmask, retries);
 
 		bcmsdh_cfg_write(bus->sdh, SDIO_FUNC_1, SBSDIO_WATERMARK, (uint8)watermark, &err);
@@ -5790,6 +5789,14 @@ _dhdsdio_download_firmware(struct dhd_bus *bus)
 	bool dlok = FALSE;	/* download firmware succeeded */
 
 	/* Out immediately if no image to download */
+	if ((bus->fw_path == NULL) || (bus->fw_path[0] == '\0')) {
+#ifdef BCMEMBEDIMAGE
+		embed = TRUE;
+#else
+		return bcmerror;
+#endif
+	}
+
 #if defined(SOFTAP)
 	if  (strstr(bus->fw_path, "apsta") != NULL) {
 		printf("AP firmware load!\n");
@@ -5799,13 +5806,6 @@ _dhdsdio_download_firmware(struct dhd_bus *bus)
 		ap_fw_loaded = FALSE;
 	}
 #endif
-	if ((bus->fw_path == NULL) || (bus->fw_path[0] == '\0')) {
-#ifdef BCMEMBEDIMAGE
-		embed = TRUE;
-#else
-		return bcmerror;
-#endif
-	}
 
 	/* Keep arm in reset */
 	if (dhdsdio_download_state(bus, TRUE)) {

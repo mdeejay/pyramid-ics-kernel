@@ -156,7 +156,12 @@ osl_attach(void *pdev, uint bustype, bool pkttag)
 
 	osh = kmalloc(sizeof(osl_t), GFP_ATOMIC);
 	ASSERT(osh);
-
+#ifdef HTC_KlocWork
+    if(osh == NULL) {
+        printf("[HTCKW] osl_attach: osh == NULL\n");
+        return NULL;
+    }
+#endif
 	bzero(osh, sizeof(osl_t));
 
 	
@@ -194,6 +199,9 @@ osl_attach(void *pdev, uint bustype, bool pkttag)
 		if (!(bcm_static_buf = (bcm_static_buf_t *)dhd_os_prealloc(3, STATIC_BUF_SIZE+
 			STATIC_BUF_TOTAL_LEN))) {
 			printf("can not alloc static buf!\n");
+#ifdef HTC_KlocWork
+      return NULL;
+#endif
 		}
 		else
 			printf("alloc static buf at %x!\n", (unsigned int)bcm_static_buf);
@@ -213,6 +221,9 @@ osl_attach(void *pdev, uint bustype, bool pkttag)
 		bcm_static_skb = (bcm_static_pkt_t *)((char *)bcm_static_buf + 2048);
 		skb_buff_ptr = dhd_os_prealloc(4, 0);
 
+#ifdef HTC_KlocWork
+    if(skb_buff_ptr != NULL)
+#endif
 		bcopy(skb_buff_ptr, bcm_static_skb, sizeof(struct sk_buff *)*16);
 		for (i = 0; i < MAX_STATIC_PKT_NUM*2; i++)
 			bcm_static_skb->pkt_use[i] = 0;

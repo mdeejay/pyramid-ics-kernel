@@ -179,6 +179,10 @@ extern bool allowMulticast;
 extern int dhd_set_keepalive(int value);
 #endif
 
+//HTC_CSP_START
+extern struct perf_lock wlan_perf_lock;
+//HTC_CSP_END
+
 #define MAX_WLIW_IOCTL_LEN 1024
 
 
@@ -889,6 +893,9 @@ wl_iw_set_country(
 
 	memset(country_code, 0, sizeof(country_code));
 
+#ifdef HTC_KlocWork
+    memset(&ci,0,sizeof(ci));
+#endif
 	
 	country_offset = strcspn(extra, " ");
 	country_code_size = strlen(extra) - country_offset;
@@ -2036,7 +2043,22 @@ exit_proc:
 
 /* traffic indicate parameters */
 /* framework will obtain RSSI every 3000 ms*/
-#define TRAFFIC_HIGH_WATER_MARK	        2560 *(3000/1000)
+/* The throughput mapping to packet count is as below:
+ *  2Mbps: ~280 packets / second
+ *  4Mbps: ~540 packets / second
+ *  6Mbps: ~800 packets / second
+ *  8Mbps: ~1200 packets / second
+ * 12Mbps: ~1500 packets / second
+ * 14Mbps: ~1800 packets / second
+ * 16Mbps: ~2000 packets / second
+ * 18Mbps: ~2300 packets / second
+ * 20Mbps: ~2600 packets / second
+ */
+#ifdef CONFIG_MACH_LEAD
+#define TRAFFIC_HIGH_WATER_MARK	        1500 *(3000/1000)
+#else
+#define TRAFFIC_HIGH_WATER_MARK	        2300 *(3000/1000)
+#endif
 #define TRAFFIC_LOW_WATER_MARK          256 * (3000/1000)
 typedef enum traffic_ind {
 	TRAFFIC_STATS_HIGH = 0,
@@ -2136,7 +2158,11 @@ wl_iw_send_priv_event(
 	if (strlen(flag) > sizeof(extra))
 		return -1;
 
+#ifdef HTC_KlocWork
+    strncpy(extra, flag, IW_CUSTOM_MAX + 1);
+#else
 	strcpy(extra, flag);
+#endif
 	wrqu.data.length = strlen(extra);
 	wireless_send_event(dev, cmd, &wrqu, extra);
 	WL_TRACE(("%s: Send IWEVCUSTOM Event as %s\n", __FUNCTION__, extra));
@@ -2861,7 +2887,9 @@ wl_iw_config_commit(
 	wlc_ssid_t ssid;
 	int error;
 	struct sockaddr bssid;
-
+#ifdef HTC_KlocWork
+    memset(&ssid,0,sizeof(ssid));
+#endif
 	WL_TRACE(("%s: SIOCSIWCOMMIT\n", dev->name));
 
 	if ((error = dev_wlc_ioctl(dev, WLC_GET_SSID, &ssid, sizeof(ssid))))
@@ -2958,7 +2986,9 @@ wl_iw_get_freq(
 {
 	channel_info_t ci;
 	int error;
-
+#ifdef HTC_KlocWork
+    memset(&ci,0,sizeof(ci));
+#endif
 	WL_TRACE(("%s: SIOCGIWFREQ\n", dev->name));
 
 	if ((error = dev_wlc_ioctl(dev, WLC_GET_CHANNEL, &ci, sizeof(ci))))
@@ -3044,7 +3074,7 @@ wl_iw_get_range(
 	int error, i, k;
 	uint sf, ch;
 
-	int phytype;
+	int phytype = 0; //HTC_KlocWork
 	int bw_cap = 0, sgi_tx = 0, nmode = 0;
 	channel_info_t ci;
 	uint8 nrate_list2copy = 0;
@@ -3054,7 +3084,10 @@ wl_iw_get_range(
 		{30, 60, 90, 120, 180, 240, 270, 300}};
 
 	WL_TRACE(("%s: SIOCGIWRANGE\n", dev->name));
-
+#ifdef HTC_KlocWork
+    memset(&rateset,0,sizeof(rateset));
+    memset(&ci,0,sizeof(ci));
+#endif
 	if (!extra)
 		return -EINVAL;
 
@@ -3116,7 +3149,11 @@ wl_iw_get_range(
 	}
 	rateset.count = dtoh32(rateset.count);
 	range->num_bitrates = rateset.count;
+#ifdef HTC_KlocWork
+    for (i = 0; i < rateset.count && i < WL_NUMRATES; i++)
+#else
 	for (i = 0; i < rateset.count && i < IW_MAX_BITRATES; i++)
+#endif
 		range->bitrate[i] = (rateset.rates[i]& 0x7f) * 500000; 
 	dev_wlc_intvar_get(dev, "nmode", &nmode);
 	dev_wlc_ioctl(dev, WLC_GET_PHYTYPE, &phytype, sizeof(phytype));
@@ -3562,7 +3599,9 @@ wl_iw_iscan_get_aplist(
 	struct iw_quality qual[IW_MAX_AP];
 	wl_bss_info_t *bi = NULL;
 	int i;
-
+#ifdef HTC_KlocWork
+    memset(&qual,0,sizeof(qual));
+#endif
 	WL_TRACE(("%s: SIOCGIWAPLIST\n", dev->name));
 
 	if (!extra)
@@ -3618,7 +3657,15 @@ wl_iw_iscan_get_aplist(
 		buf = buf->next;
 	}
 	if (dwrq->length) {
+#ifdef HTC_KlocWork
+        int cpylen = sizeof(struct iw_quality) * dwrq->length;
+        if( cpylen > sizeof(qual))
+            cpylen = sizeof(qual);
+
+        memcpy(&addr[dwrq->length], qual, cpylen);
+#else
 		memcpy(&addr[dwrq->length], qual, sizeof(struct iw_quality) * dwrq->length);
+#endif
 		
 		dwrq->flags = 1;
 	}
@@ -5071,7 +5118,11 @@ wl_iw_iscan_get_scan(
 			iwe.cmd = SIOCGIWRATE;
 			
 			iwe.u.bitrate.fixed = iwe.u.bitrate.disabled = 0;
+#ifdef HTC_KlocWork
+            for (j = 0; j < bi->rateset.count && j < WL_NUMRATES; j++) {
+#else
 			for (j = 0; j < bi->rateset.count && j < IW_MAX_BITRATES; j++) {
+#endif
 				iwe.u.bitrate.value = (bi->rateset.rates[j] & 0x7f) * 500000;
 				value = IWE_STREAM_ADD_VALUE(info, event, value, end, &iwe,
 					IW_EV_PARAM_LEN);
@@ -5171,7 +5222,9 @@ wl_iw_get_essid(
 {
 	wlc_ssid_t ssid;
 	int error;
-
+#ifdef HTC_KlocWork
+    memset(&ssid, 0, sizeof(ssid));
+#endif
 	WL_TRACE(("%s: SIOCGIWESSID\n", dev->name));
 
 	if (!extra)
@@ -5214,6 +5267,9 @@ wl_iw_set_nick(
 		return -E2BIG;
 
 	memcpy(iw->nickname, extra, dwrq->length);
+#ifdef HTC_KlocWork
+    if(dwrq->length >= 1)
+#endif
 	iw->nickname[dwrq->length - 1] = '\0';
 
 	return 0;
@@ -5252,6 +5308,9 @@ static int wl_iw_set_rate(
 
 	WL_TRACE(("%s: SIOCSIWRATE\n", dev->name));
 
+#ifdef HTC_KlocWork
+    memset(&rateset,0,sizeof(rateset));
+#endif
 	
 	if ((error = dev_wlc_ioctl(dev, WLC_GET_CURR_RATESET, &rateset, sizeof(rateset))))
 		return error;
@@ -5307,7 +5366,7 @@ static int wl_iw_get_rate(
 	char *extra
 )
 {
-	int error, rate;
+	int error=0, rate=0; //HTC_KlocWork
 
 	WL_TRACE(("%s: SIOCGIWRATE\n", dev->name));
 
@@ -5462,7 +5521,7 @@ wl_iw_get_txpow(
 	char *extra
 )
 {
-	int error, disable, txpwrdbm;
+	int error, disable=0, txpwrdbm; //HTC_KlocWork
 	uint8 result;
 
 	WL_TRACE(("%s: SIOCGIWTXPOW\n", dev->name));
@@ -5536,7 +5595,7 @@ wl_iw_get_retry(
 	char *extra
 )
 {
-	int error, lrl, srl;
+	int error, lrl=0, srl=0; //HTC_KlocWork
 
 	WL_TRACE(("%s: SIOCGIWRETRY\n", dev->name));
 
@@ -5673,7 +5732,7 @@ wl_iw_get_encode(
 )
 {
 	wl_wsec_key_t key;
-	int error, val, wsec, auth;
+	int error, val, wsec=0, auth=0; //HTC_KlocWork
 
 	WL_TRACE(("%s: SIOCGIWENCODE\n", dev->name));
 
@@ -5756,7 +5815,7 @@ wl_iw_get_power(
 	char *extra
 )
 {
-	int error, pm;
+	int error, pm=0; //HTC_KlocWork
 
 	WL_TRACE(("%s: SIOCGIWPOWER\n", dev->name));
 
@@ -6627,7 +6686,11 @@ wl_iw_combined_scan_set(struct net_device *dev, wlc_ssid_t* ssids_local, int nss
 
 	WL_TRACE(("%s nssid=%d nchan=%d\n", __FUNCTION__, nssid, nchan));
 
+#ifdef HTC_KlocWork
+    if ((!dev) || (!g_iscan) || (!iscan->iscan_ex_params_p)) {
+#else
 	if ((!dev) && (!g_iscan) && (!iscan->iscan_ex_params_p)) {
+#endif
 		WL_ERROR(("%s error exit\n", __FUNCTION__));
 		err = -1;
 		goto exit;
@@ -7247,6 +7310,7 @@ static int set_ap_cfg(struct net_device *dev, struct ap_profile *ap)
 		WL_SOFTAP(("	key = '%s'\n", ap->key));
 	WL_SOFTAP(("	channel = %d\n", ap->channel));
 	WL_SOFTAP(("	max scb = %d\n", ap->max_scb));
+	WL_SOFTAP(("	hidden = %d\n", ap->closednet));
 
 	iw = *(wl_iw_t **)netdev_priv(dev);
 	MUTEX_LOCK_SOFTAP_SET(iw->pub);
@@ -7654,7 +7718,7 @@ int get_parmeter_from_string(
 			int param_type, void  *dst, int param_max_len)
 {
 	char int_str[7] = "0";
-	int parm_str_len;
+	int parm_str_len=0; //HTC_KlocWork
 	char  *param_str_begin;
 	char  *param_str_end;
 
@@ -7665,7 +7729,9 @@ int get_parmeter_from_string(
 		strsep(str_ptr, "=,"); 
 
 		if (*str_ptr == NULL) {
-			
+#ifdef HTC_KlocWork
+            if(param_str_begin != NULL)
+#endif
 			parm_str_len = strlen(param_str_begin);
 		} else {
 			param_str_end = *str_ptr-1;  
@@ -7701,6 +7767,9 @@ int get_parmeter_from_string(
 				u8 *buf = dst;
 				
 				param_max_len = param_max_len >> 1;  
+#ifdef HTC_KlocWork
+			if(param_str_begin != NULL)
+#endif
 				hstr_2_buf(param_str_begin, buf, param_max_len);
 				print_buf(buf, param_max_len, 0);
 			}
@@ -9439,7 +9508,24 @@ wl_iw_event(struct net_device *dev, wl_event_msg_t *e, void* data)
 		printf("Recevied RSSI LOW event!\n");
 		break;
 #endif
+//HTC_CSP_START
+	case WLC_E_LOAD_IND:
+		printf("WLC_E_LOAD_IND\n");
+		if (datalen > IW_CUSTOM_MAX)
+			break;
 
+
+		if (status) {
+			printf("HIGH INDICATE!!\n");
+			if (!is_perf_lock_active(&wlan_perf_lock))
+				perf_lock(&wlan_perf_lock);
+		} else {
+			printf("LOW INDICATE!!\n");
+			if (is_perf_lock_active(&wlan_perf_lock))
+				perf_unlock(&wlan_perf_lock);
+		}
+		break;
+//HTC_CSP_END
 	case WLC_E_SCAN_COMPLETE:
 #if defined(WL_IW_USE_ISCAN)
 		if ((g_iscan) && (g_iscan->sysioc_pid >= 0) &&
@@ -9801,6 +9887,12 @@ wl_iw_sta_restart(struct net_device *dev)
 
 	dhd_os_start_lock(iw->pub);
 
+//HTC_CSP_START
+	if (dev_wlc_ioctl_off == 1) {
+		dhd_os_start_unlock(iw->pub);
+		return;
+	}
+//HTC_CSP_END
 #if defined(WL_IW_USE_ISCAN)
         g_iscan->iscan_state = ISCAN_STATE_IDLE;
 #endif
@@ -9878,6 +9970,12 @@ static void wl_iw_ap_restart(void)
 static void wl_iw_restart(struct net_device *dev)
 {
 	wl_iw_sta_restart(dev);
+
+//HTC_CSP_START
+	if (dev_wlc_ioctl_off == 1) {
+		return;
+	}
+//HTC_CSP_END
 	if ( ap_cfg_running ) 
 		wl_iw_ap_restart();
 
